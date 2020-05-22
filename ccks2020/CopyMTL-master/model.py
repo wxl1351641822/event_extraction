@@ -270,7 +270,7 @@ class OneDecoder(Decoder):
             -> Tuple[List[torch.Tensor], List[torch.Tensor]]:
 
         # sos = go = 0
-
+        print(sentence.shape[0])
         pred_action_list = []
         pred_logits_list = []
 
@@ -326,7 +326,7 @@ class CCKSDecoder(nn.Module):
 
         self.cell_name = config.cell_name
         self.decoder_type = config.decoder_type
-
+        self.batch_size=config.batch_size
         self.hidden_size = config.decoder_num_units
         self.emb_size = config.embedding_dim
         self.words_number = config.words_number
@@ -362,6 +362,8 @@ class CCKSDecoder(nn.Module):
 
         self.fuse = nn.Linear(self.hidden_size * 2, 100)
         self.do_copy_linear = nn.Linear(100,1 )#预测其位置
+
+
 
 
     def calc_context(self, decoder_state: torch.Tensor, encoder_outputs: torch.Tensor) -> torch.Tensor:
@@ -537,9 +539,9 @@ class OneCCKSDecoder(CCKSDecoder):
 
         # sos = go = 0
 
-        pred_action_list = []
-        pred_logits_list = []
-
+        pred_action_list = torch.zeros(self.decodelen, self.batch_size).to(self.device)
+        pred_logits_list = torch.zeros(self.decodelen, self.batch_size, self.event_number+1).to(self.device)
+        # pred_logits_list_event=torch.zeros(self.decodelen//(self.maxlen+1),self.batch_size,self.event_number+1).to(self.device)
         go = torch.zeros(sentence.size()[0], dtype=torch.int64).to(self.device)
         output = self.sos_embedding(go)
 
@@ -552,13 +554,16 @@ class OneCCKSDecoder(CCKSDecoder):
 
             if t % self.eventlen == 0:
                 action_logits = predict_logits
+                pred_logits_list[t]=action_logits
             else:
                 action_logits = predict_entity_tag_logits#copy_logits
+                # print(action_logits.shape)
+                pred_logits_list[t,:,:self.entity_size]=action_logits
 
             max_action = torch.argmax(action_logits, dim=1).detach()
 
-            pred_action_list.append(max_action)
-            pred_logits_list.append(action_logits)
+            pred_action_list[t]=max_action
+            # pred_logits_list[t]=action_logits
 
             # next time step
             if t % self.eventlen == 0:
@@ -569,7 +574,8 @@ class OneCCKSDecoder(CCKSDecoder):
                 output = max_action
                 output=self.entity_embedding(output)
 
-        return pred_action_list, pred_logits_list
+        return pred_action_list,pred_logits_list
+
 
 
 class Seq2seq(nn.Module):
@@ -594,6 +600,8 @@ class Seq2seq(nn.Module):
                 self.decoder = OneCCKSDecoder(config, embedding=self.word_embedding, device=device)
             elif config.decoder_type == 'multi':
                 self.decoder = MultiCCKSDecoder(config, embedding=self.word_embedding, device=device)
+            elif config.decoder_type == 'onecrf':
+                self.decoder = OneCrfCCKSDecoder(config, embedding=self.word_embedding, device=device)
             else:
                 raise ValueError('decoder type one/multi!!')
         else:
@@ -632,4 +640,6 @@ class Seq2seq(nn.Module):
                                                           encoder_outputs=o)
 
         return pred_action_list, pred_logits_list
+
+
 

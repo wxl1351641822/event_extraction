@@ -111,7 +111,7 @@ class Config:
             # self.relation_number = 28
             self.event_number=30
             self.max_sentence_length = 80
-            self.entity_size=117
+            self.entity_size=3
             self.event_length=self.max_sentence_length+1
 
             self.words2id_filename = os.path.join(data_home, 'word2id.txt')
@@ -120,12 +120,13 @@ class Config:
             self.entity2id_filename = os.path.join(data_home, 'entity2id.txt')
             self.words_id2vector_filename = os.path.join(data_home, 'words_id2vector.json')
             self.train_filename = os.path.join(data_home, 'train.txt')
-            self.test_filename = os.path.join(data_home, 'dev.txt')
+            self.test_filename = os.path.join(data_home, 'predict.txt')
             self.valid_filename = os.path.join(data_home, 'dev.txt')
             self.summary_filename = os.path.join(self.runner_path, 'seq2seq_re_graph')
             self.decoder_output_max_length = self.triple_number * (self.max_sentence_length+1)
             self.NA_EVENT = tuple([self.event_number]+[0]*self.max_sentence_length)
             self.name='valid'
+            self.losstype=1
 
 
 

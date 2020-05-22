@@ -38,7 +38,7 @@ def compare(predict, gold, config, show_rate=None, simple=True):
     compare_(multi_label_predict, multi_label_gold, 'Multi-Label', config, show_rate)
     compare_(over_lapping_predict, over_lapping_gold, 'Over-Lapping', config, show_rate)
 
-    # sentences contains 1, 2, 3, 4, and >5 triples
+    # sentences contains 1, 2, 3_实体识别, 4_实体识别_1_3的O, and >5 triples
     triples_size_1_gold, triples_size_2_gold, triples_size_3_gold, triples_size_4_gold, triples_size_5_gold = [], [], [], [], []
     triples_size_1_predict, triples_size_2_predict, triples_size_3_predict, triples_size_4_predict, triples_size_5_predict = [], [], [], [], []
     for p, g in zip(predict, gold):
@@ -60,20 +60,20 @@ def compare(predict, gold, config, show_rate=None, simple=True):
             triples_size_5_gold.append(g)
     compare_(triples_size_1_predict, triples_size_1_gold, 'Sentence-1-Triple', config, show_rate)
     compare_(triples_size_2_predict, triples_size_2_gold, 'Sentence-2-Triple', config, show_rate)
-    compare_(triples_size_3_predict, triples_size_3_gold, 'Sentence-3-Triple', config, show_rate)
-    compare_(triples_size_4_predict, triples_size_4_gold, 'Sentence-4-Triple', config, show_rate)
+    compare_(triples_size_3_predict, triples_size_3_gold, 'Sentence-3_实体识别-Triple', config, show_rate)
+    compare_(triples_size_4_predict, triples_size_4_gold, 'Sentence-4_实体识别_1_3的O-Triple', config, show_rate)
     compare_(triples_size_5_predict, triples_size_5_gold, 'Sentence-5-Triple', config, show_rate)
     return None, None, None
 
 
 def _triplelist2triples_(triple_list, config):
     """
-     >>> _triplelist2triples_([1,2,3, 2,5,0])
-     {(1,2,3),(2,5,0)}
-     >>> _triplelist2triples_([1,2,3, 1,2,3, 2,5,0])
-     {(1,2,3),(2,5,0)}
-     >>> _triplelist2triples_([1,2,3, 2,5,0].extend(config.NA_TRIPLE))
-     {(1,2,3),(2,5,0)}
+     >>> _triplelist2triples_([1,2,3_实体识别, 2,5,0])
+     {(1,2,3_实体识别),(2,5,0)}
+     >>> _triplelist2triples_([1,2,3_实体识别, 1,2,3_实体识别, 2,5,0])
+     {(1,2,3_实体识别),(2,5,0)}
+     >>> _triplelist2triples_([1,2,3_实体识别, 2,5,0].extend(config.NA_TRIPLE))
+     {(1,2,3_实体识别),(2,5,0)}
     """
     triple_list = list(triple_list)
     triples = set([tuple(triple_list[i:i + 3]) for i in range(0, len(triple_list), 3)])
@@ -86,10 +86,10 @@ def triples2entities(triples):
     """
     :param triples:
     :return:
-    >>> triples2entities([[1,2,3], [0, 3,4]])
-    [2,3,4]
-    >>> triples2entities([[1,2,3], [1,2,3]])
-    [2,3]
+    >>> triples2entities([[1,2,3_实体识别], [0, 3_实体识别,4_实体识别_1_3的O]])
+    [2,3_实体识别,4_实体识别_1_3的O]
+    >>> triples2entities([[1,2,3_实体识别], [1,2,3_实体识别]])
+    [2,3_实体识别]
     """
     entities = []
     for triple in triples:
@@ -101,9 +101,9 @@ def triples2relations(triples):
     """
     :param triples:
     :return:
-    >>> triples2relations([[1,2,3], [0, 3,4]])
+    >>> triples2relations([[1,2,3_实体识别], [0, 3_实体识别,4_实体识别_1_3的O]])
     [1,0]
-    >>> triples2relations([[1,2,3], [1,2,3]])
+    >>> triples2relations([[1,2,3_实体识别], [1,2,3_实体识别]])
     [1]
     """
     relations = []
@@ -114,12 +114,12 @@ def triples2relations(triples):
 
 def _eventlist2events_(triple_list, config):
     """
-     >>> _triplelist2triples_([1,2,3, 2,5,0])
-     {(1,2,3),(2,5,0)}
-     >>> _triplelist2triples_([1,2,3, 1,2,3, 2,5,0])
-     {(1,2,3),(2,5,0)}
-     >>> _triplelist2triples_([1,2,3, 2,5,0].extend(config.NA_TRIPLE))
-     {(1,2,3),(2,5,0)}
+     >>> _triplelist2triples_([1,2,3_实体识别, 2,5,0])
+     {(1,2,3_实体识别),(2,5,0)}
+     >>> _triplelist2triples_([1,2,3_实体识别, 1,2,3_实体识别, 2,5,0])
+     {(1,2,3_实体识别),(2,5,0)}
+     >>> _triplelist2triples_([1,2,3_实体识别, 2,5,0].extend(config.NA_TRIPLE))
+     {(1,2,3_实体识别),(2,5,0)}
     """
     triple_list = list(triple_list)
     triples = set(
@@ -190,8 +190,8 @@ def rel_entity_compare(predict, gold, config):
 
 
 def event_entity_compare(predict, gold, config):
-    event_TP = [0] * (config.event_number+ 1)  # 28+<eos>
-    event_FN = [0] * (config.event_number+ 1)
+    event_TP = [0] * (config.event_number + 1)  # 28+<eos>
+    event_FN = [0] * (config.event_number + 1)
     event_FP = [0] * (config.event_number + 1)
 
     entity_TP = [0] * config.entity_size
@@ -207,6 +207,7 @@ def event_entity_compare(predict, gold, config):
 
         # 事件
         for r, g in zip(r_p, g_p):
+            r = int(r)
             if (r == g):
                 event_TP[r] += 1
             else:
@@ -216,8 +217,10 @@ def event_entity_compare(predict, gold, config):
         r_e = list(map(lambda x: x[1:], p_triples))
         g_e = list(map(lambda x: x[1:], g_triples))
         # 实体
+        # print(r_e)
         for r_l, g_l in zip(r_e, g_e):
             for r, g in zip(r_l, g_l):
+                r = int(r)
                 if (r == g):
                     entity_TP[r] += 1
                 else:
@@ -240,31 +243,87 @@ def event_entity_compare(predict, gold, config):
 
     return (fpr(event_TP, event_FN, event_FP), fpr(entity_TP, entity_FN, entity_FP))
 
+def split_triple(triples):
+    dic = {}
+    num=0
+    for p_t in triples:
+        if p_t[0] not in dic.keys():
+            dic[p_t[0]]=[]
+        entity=[]
+        for i,t in enumerate(p_t[1:]):
+            if(t==2):
+                if(len(entity)!=0):
+                    dic[p_t[0]].append(''.join(entity))
+                    num+=1
+                entity=[str(i)]
+            if(t==3):
+                entity.append(str(i))
+    return dic,num
+
+
+
+
+
+def event_entity_yaoqiu_compare(predict,gold,config):
+    correct=0
+    p_num=0
+    g_num=0
+    for p, g in zip(predict, gold):
+        p_triples = _eventlist2events_(p, config)
+        g_triples = _eventlist2events_(g, config)
+
+        ###1.切分成{事件1:[主体1,主体2],事件2:[主体1,主体2]}##########################################
+
+        p_dic,num=split_triple(p_triples)
+        p_num+=num
+        g_dic,num=split_triple(g_triples)
+        g_num+=num
+
+        for k,v in g_dic.items():
+            try:
+                entitylist=p_dic[k]
+                for g_entity in v:
+                    if(g_entity in entitylist):
+                        correct+=1
+            except:
+                pass
+
+    def fpr(num):
+        precision = num * 1.0 / p_num if p_num > 0 else 0.
+        recall = num * 1.0 / g_num if g_num > 0 else 0.0
+        f1 = 2 * precision * recall / (precision + recall) if precision * recall > 0 else 0.
+        return f1, precision, recall
+
+    return (fpr(correct))
 
 def get_result(ids, sentences, lengths, predicts, config):
     # entity2id=data_process.read_dic('./work/event/entity2id.txt')
-    eventlist = data_process.read_list('./work/event/event2id.txt')
-    wordlist = data_process.read_list('./work/event/word2id.txt')
+    eventlist = data_process.read_list('./data/event/event2id.txt')
+    wordlist = data_process.read_list('./data/event/word2id.txt')
 
     result_id = []
     result_event = []
     result_entity = []
     for id, sent, length, p in zip(ids, sentences, lengths, predicts):
-        p_triples = _eventlist2events_(p[:length], config)
+
+        p_triples = _eventlist2events_(p, config)
         for triples in p_triples:
             if (triples[0] == config.event_number):
                 break
-            event = eventlist[triples[0]]
+            event = eventlist[int(triples[0])]
             entity = []
-            for i, t in enumerate(i, triples[1:]):
+            for i, t in enumerate(triples[1:]):
                 if t != 0:
-                    entity.append(wordlist(sent[i]))
+                    # print(i,sent[i])
+                    # print(wordlist)
+                    entity.append(wordlist[sent[i]])
                 else:
                     if (len(entity) != 0):
                         entity = ''.join(entity)
                         result_id.append(id)
                         result_event.append(event)
                         result_entity.append(entity)
+
                     entity = []
     data = pd.DataFrame()
     data['id'] = result_id

@@ -170,8 +170,8 @@ def change2relation_first(triples):
     :param triples:
     :return: triples with relation first
 
-    >>> change2relation_first([[1, 2, 23, 32, 19, 8],[0,28, 3]])
-    [[23, 1, 2, 8, 32, 19], [3, 0, 28]]
+    >>> change2relation_first([[1, 2, 23, 32, 19, 8],[0,28, 3_实体识别]])
+    [[23, 1, 2, 8, 32, 19], [3_实体识别, 0, 28]]
     """
     triple_count = 0
     new_triples = []
@@ -194,21 +194,21 @@ def is_normal_triple(triples, is_relation_first=False):
     :param is_relation_first
     :return:
 
-    >>> is_normal_triple([1,2,3, 4,5,0])
+    >>> is_normal_triple([1,2,3_实体识别, 4_实体识别_1_3的O,5,0])
     True
-    >>> is_normal_triple([1,2,3, 4,5,3])
+    >>> is_normal_triple([1,2,3_实体识别, 4_实体识别_1_3的O,5,3_实体识别])
     True
-    >>> is_normal_triple([1,2,3, 2,5,0])
+    >>> is_normal_triple([1,2,3_实体识别, 2,5,0])
     False
-    >>> is_normal_triple([1,2,3, 1,2,0])
+    >>> is_normal_triple([1,2,3_实体识别, 1,2,0])
     False
-    >>> is_normal_triple([1,2,3, 4,5,0], is_relation_first=True)
+    >>> is_normal_triple([1,2,3_实体识别, 4_实体识别_1_3的O,5,0], is_relation_first=True)
     True
-    >>> is_normal_triple([1,2,3, 4,5,3], is_relation_first=True)
+    >>> is_normal_triple([1,2,3_实体识别, 4_实体识别_1_3的O,5,3_实体识别], is_relation_first=True)
     False
-    >>> is_normal_triple([1,2,3, 2,5,0], is_relation_first=True)
+    >>> is_normal_triple([1,2,3_实体识别, 2,5,0], is_relation_first=True)
     True
-    >>> is_normal_triple([1,2,3, 1,2,0], is_relation_first=True)
+    >>> is_normal_triple([1,2,3_实体识别, 1,2,0], is_relation_first=True)
     False
     """
     entities = set()
@@ -224,21 +224,21 @@ def is_multi_label(triples, is_relation_first=False):
     :param triples:
     :param is_relation_first:
     :return:
-    >>> is_multi_label([1,2,3, 4,5,0])
+    >>> is_multi_label([1,2,3_实体识别, 4_实体识别_1_3的O,5,0])
     False
-    >>> is_multi_label([1,2,3, 4,5,3])
+    >>> is_multi_label([1,2,3_实体识别, 4_实体识别_1_3的O,5,3_实体识别])
     False
-    >>> is_multi_label([1,2,3, 2,5,0])
+    >>> is_multi_label([1,2,3_实体识别, 2,5,0])
     False
-    >>> is_multi_label([1,2,3, 1,2,0])
+    >>> is_multi_label([1,2,3_实体识别, 1,2,0])
     True
-    >>> is_multi_label([1,2,3, 4,5,0], is_relation_first=True)
+    >>> is_multi_label([1,2,3_实体识别, 4_实体识别_1_3的O,5,0], is_relation_first=True)
     False
-    >>> is_multi_label([1,2,3, 4,5,3], is_relation_first=True)
+    >>> is_multi_label([1,2,3_实体识别, 4_实体识别_1_3的O,5,3_实体识别], is_relation_first=True)
     False
     >>> is_multi_label([1,5,0, 2,5,0], is_relation_first=True)
     True
-    >>> is_multi_label([1,2,3, 1,2,0], is_relation_first=True)
+    >>> is_multi_label([1,2,3_实体识别, 1,2,0], is_relation_first=True)
     False
     """
     if is_normal_triple(triples, is_relation_first):
@@ -256,21 +256,21 @@ def is_over_lapping(triples, is_relation_first=False):
     :param triples:
     :param is_relation_first:
     :return:
-    >>> is_over_lapping([1,2,3, 4,5,0])
+    >>> is_over_lapping([1,2,3_实体识别, 4_实体识别_1_3的O,5,0])
     False
-    >>> is_over_lapping([1,2,3, 4,5,3])
+    >>> is_over_lapping([1,2,3_实体识别, 4_实体识别_1_3的O,5,3_实体识别])
     False
-    >>> is_over_lapping([1,2,3, 2,5,0])
+    >>> is_over_lapping([1,2,3_实体识别, 2,5,0])
     True
-    >>> is_over_lapping([1,2,3, 1,2,0])
+    >>> is_over_lapping([1,2,3_实体识别, 1,2,0])
     False
-    >>> is_over_lapping([1,2,3, 4,5,0], is_relation_first=True)
+    >>> is_over_lapping([1,2,3_实体识别, 4_实体识别_1_3的O,5,0], is_relation_first=True)
     False
-    >>> is_over_lapping([1,2,3, 4,5,3], is_relation_first=True)
+    >>> is_over_lapping([1,2,3_实体识别, 4_实体识别_1_3的O,5,3_实体识别], is_relation_first=True)
     True
     >>> is_over_lapping([1,5,0, 2,5,0], is_relation_first=True)
     False
-    >>> is_over_lapping([1,2,3, 1,2,0], is_relation_first=True)
+    >>> is_over_lapping([1,2,3_实体识别, 1,2,0], is_relation_first=True)
     True
     """
     if is_normal_triple(triples, is_relation_first):
@@ -460,7 +460,7 @@ class NYTPrepare(Prepare):
                 triples_size_5 += 1
             if len(triples) <= 5:
                 count_le_5 += 1
-        print('Sentence number with 1, 2, 3, 4, >5 triplets: %d, %d, %d, %d, %d' % (triples_size_1, triples_size_2,
+        print('Sentence number with 1, 2, 3_实体识别, 4_实体识别_1_3的O, >5 triplets: %d, %d, %d, %d, %d' % (triples_size_1, triples_size_2,
                                                                                     triples_size_3, triples_size_4,
                                                                                     triples_size_5))
         print('Sentence number with <= 5 triplets: %d' % count_le_5)
@@ -691,7 +691,7 @@ class CCKSPrepare():
         # sentence_bw = padding_sentence(inverse(all_sent_id), self.config)
         #
 
-    def test_padding(self, seq_length, sent_index, inver_sent, config):
+    def test_padding(self, seq_length, sent_index, inver_sent, sentence_length,config):
         all_sents = []
         all_inver_sents = []
         for length, sent, i_sent in zip(seq_length, sent_index, inver_sent):
@@ -699,14 +699,15 @@ class CCKSPrepare():
             end = config.max_sentence_length
             all_sents.append(self.padding_a_event_sentence(sent, beg, end))
             all_inver_sents.append(self.padding_a_event_sentence(i_sent, beg, end))
+
         return all_sents, all_inver_sents
     def test_process(self, data):
         id,all_sent_id = data
         # all_triples_id = change2relation_first(all_triples_id)
-        sentence_length = [len(sent_id) for sent_id in all_sent_id]
+        sentence_length = [len(sent_id) if len(sent_id)<=self.config.max_sentence_length else self.config.max_sentence_length for sent_id in all_sent_id]
 
         sentence_fw, sentence_bw = self.test_padding(sentence_length, all_sent_id,
-                                                                      inverse(all_sent_id), self.config)
+                                                                      inverse(all_sent_id), sentence_length,self.config)
 
         input_sentence_append_eos = append_eos2sentence(sentence_fw, self.config)
         # relations_append_eos = self.append_eos2relations(len(sentence_fw), self.config)
@@ -721,7 +722,7 @@ if __name__ == '__main__':
     config_filename = './config.json'
     config = const.Config(config_filename=config_filename, cell_name='lstm', decoder_type='one')
     p=CCKSPrepare(config)
-    data=p.load_data(config.name)
+    data=p.load_data('test')
     # print(len(data))
     # for token,label in zip(data[0],data[1]):
     #     print(len(token), len(label))
@@ -734,4 +735,4 @@ if __name__ == '__main__':
     #             if(l[0]>=30):
     #                 print(l[0])
 
-    p.process(data)
+    p.test_process(data)

@@ -2,6 +2,7 @@ import pandas as pd
 #
 
 
+
 def get_data():
     data = pd.read_csv('./data/data34808/train_label.csv', sep='\t', header=None).fillna('')
     e = []
@@ -63,18 +64,16 @@ def get_event_dict(lis,path):
         f.write(str(dic))
     return dic
 
-def get_entity2id(event2id):
+def get_entity2id():
     r=[]
-    for k in event2id.keys():
-        # print(k)
-        if k!='<NA>':
-            r.extend(['B-'+k,'M-'+k,'E-'+k,'S-'+k])
-    r=['O']+list(set(r))
+    r=['O','B','I']
     entity_dic={}
     for i,w in enumerate(r):
         entity_dic[w]=i
+    print(entity_dic)
     with open('./entity2id.txt','w',encoding='utf-8') as f:
         f.write(str(entity_dic))
+
 
 def read_dic(path):
     with open(path,'r',encoding='utf-8') as f:
@@ -106,14 +105,11 @@ def get_data2id(c_data, word2id, event2id, entity2id, path):
             # print(entity2id)
             for entity in v:
                 beg = sent.find(entity)
-                end = sent.find(entity) + len(entity) - 1
-                if (beg == end):
-                    entity_label[beg] = entity2id['S-' + k]
-                else:
-                    entity_label[beg] = entity2id['B-' + k]
-                    entity_label[end] = entity2id['E-' + k]
-                    for i in range(beg + 1, end):
-                        entity_label[i] = entity2id['M-' + k]
+                end = sent.find(entity) + len(entity)
+                entity_label[beg] = entity2id['B']
+
+                for i in range(beg + 1, end):
+                    entity_label[i] = entity2id['I']
                 # print(sent[beg:end+1],entity_label[beg:end+1])
 
                 # print(sent,v,sent.find(entity),sent[sent.find(entity)],sent[sent.find(entity)+len(entity)-1])
@@ -129,20 +125,35 @@ def get_data2id(c_data, word2id, event2id, entity2id, path):
 
 
 
+def get_predit():
+    data = pd.read_csv('../../paddlehub/data/data34808/test_unlabel.csv', sep='\t', header=None).fillna('')
+    idd=[]
+    sentence=[]
+    word2id=read_dic('./word2id.txt')
+    wordlist=list(word2id.keys())
+    for id,sent in data.values:
+        idd.append(id)
+        sentence.append([word2id[x] if x in wordlist else 1 for x in sent])
+        # print(sentence[-1])
+
+    with open('./predict.txt','w',encoding='utf-8') as f:
+        f.write(str([idd,sentence]))
+
+
 # eventlist=[]
 # for dic in c[2].values:
 #     dic=eval(dic)
 #     eventlist.extend(list(dic.keys()))
 # event2id=get_event_dict(eventlist,'./event2id.txt')
 # entityget_entity2id(event2id)
-
+# get_entity2id()
 # word2id=read_dic('./word2id.txt')
 # event2id=read_dic('./event2id.txt')
 # entity2id=read_dic('./entity2id.txt')
-# # get_entity2id(event2id)
-#
+# # # get_entity2id(event2id)
+# #
 # c=pd.read_csv('./data.csv',header=None,sep='\t')
-#
+# #
 # spl=int(c.shape[0]*0.8)
 # train=c[:spl]
 # dev=c[spl:]
