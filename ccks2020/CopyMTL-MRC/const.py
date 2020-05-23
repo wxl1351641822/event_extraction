@@ -13,6 +13,7 @@ class DataSet():
     CONLL04 = 'conll04'
     WEBNLG = 'webnlg'
     CCKS2020EVENT='event'
+    CCKSMRC='event_mrc'
     name =CCKS2020EVENT
 
     @staticmethod
@@ -23,6 +24,8 @@ class DataSet():
             DataSet.name = DataSet.WEBNLG
         elif dataset_name == DataSet.CCKS2020EVENT:
             DataSet.name = DataSet.CCKS2020EVENT
+        elif dataset_name == DataSet.CCKSMRC:
+            DataSet.name = DataSet.CCKSMRC
         else:
             print('Dataset %s is not exist!!!!!!!!!! ' % dataset_name)
             exit()
@@ -95,6 +98,7 @@ class Config:
             self.embedding_dim = 100
             self.relation_number = 247
             self.max_sentence_length = 80
+
             data_home = os.path.join(data_home, 'entity_end_position')
             self.words2id_filename = os.path.join(data_home, 'words2id.json')
             self.relations2id_filename = os.path.join(data_home, 'relations2id.json')
@@ -125,6 +129,31 @@ class Config:
             self.summary_filename = os.path.join(self.runner_path, 'seq2seq_re_graph')
             self.decoder_output_max_length = self.triple_number * (self.max_sentence_length+1)
             self.NA_EVENT = tuple([self.event_number]+[0]*self.max_sentence_length)
+            self.name='valid'
+            self.losstype=1
+
+        if DataSet.name == DataSet.CCKSMRC:
+            self.entity_length=cfg["entity_length"]
+            self.words_number = 5566
+            self.embedding_dim = 100
+            self.relation_number = 29
+            self.event_number=self.relation_number
+
+            self.max_sentence_length = 80
+            # self.entity_size=3
+            self.event_length=3#event_mrc,entity_beg,entity_end
+            # data_home = os.path.join(home, 'data', 'event_mrc')
+            self.words2id_filename = os.path.join(data_home, 'word2id.txt')
+            # self.relations2id_filename = os.path.join(data_home, 'event2id.txt')
+            self.event2id_filename = os.path.join(data_home, 'event2id.txt')
+            self.entity2id_filename = os.path.join(data_home, 'entity2id.txt')
+            self.words_id2vector_filename = os.path.join(data_home, 'words_id2vector.json')
+            self.train_filename = os.path.join(data_home, 'train.txt')
+            self.test_filename = os.path.join(data_home, 'predict.txt')
+            self.valid_filename = os.path.join(data_home, 'dev.txt')
+            self.summary_filename = os.path.join(self.runner_path, 'seq2seq_re_graph')
+            self.decoder_output_max_length = self.triple_number * self.event_length
+            self.NA_TRIPLE= tuple([self.event_number]+[self.max_sentence_length]*2)
             self.name='valid'
             self.losstype=1
 

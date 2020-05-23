@@ -270,7 +270,7 @@ class OneDecoder(Decoder):
             -> Tuple[List[torch.Tensor], List[torch.Tensor]]:
 
         # sos = go = 0
-        print(sentence.shape[0])
+        # print(sentence.shape[0])
         pred_action_list = []
         pred_logits_list = []
 
@@ -600,8 +600,6 @@ class Seq2seq(nn.Module):
                 self.decoder = OneCCKSDecoder(config, embedding=self.word_embedding, device=device)
             elif config.decoder_type == 'multi':
                 self.decoder = MultiCCKSDecoder(config, embedding=self.word_embedding, device=device)
-            elif config.decoder_type == 'onecrf':
-                self.decoder = OneCrfCCKSDecoder(config, embedding=self.word_embedding, device=device)
             else:
                 raise ValueError('decoder type one/multi!!')
         else:
@@ -635,7 +633,9 @@ class Seq2seq(nn.Module):
     def forward(self, sentence: torch.Tensor, sentence_eos: torch.Tensor, lengths: List[int]) \
             -> Tuple[torch.Tensor, torch.Tensor]:
 
+
         o, h = self.encoder(sentence, lengths)
+
         pred_action_list, pred_logits_list = self.decoder(sentence=sentence_eos.to(torch.long), decoder_state=h,
                                                           encoder_outputs=o)
 

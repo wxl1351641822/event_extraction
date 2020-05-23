@@ -478,7 +478,9 @@ class WebNLGPrepare(Prepare):
         relations_append_eos = append_eos2relations(len(sentence_fw), self.config)
         return [standard_outputs, sentence_length, sentence_fw, sentence_bw, [None] * len(sentence_fw),
                 [None] * len(sentence_fw), input_sentence_append_eos, relations_append_eos, all_triples_id]
-
+##########################################################################################################
+#  序列标注的处理：一组为1+max_seq_len
+##########################################################################################################
 class CCKSPrepare():
     def __init__(self, config):
         self.config = config
@@ -714,6 +716,20 @@ class CCKSPrepare():
         return [id, sentence_length, sentence_fw, sentence_bw, [None] * len(sentence_fw),
                 [None] * len(sentence_fw), input_sentence_append_eos, id,id]
 
+class CCKSMrcPrepare(CCKSPrepare):
+    def process(self, data):
+        all_sent_id, all_triples_id = data
+        all_triples_id = change2relation_first(all_triples_id)
+        standard_outputs = padding_triples(all_triples_id, self.config)
+        sentence_length = [len(sent_id) for sent_id in all_sent_id]
+        sentence_fw = padding_sentence(all_sent_id, self.config)
+        sentence_bw = padding_sentence(inverse(all_sent_id), self.config)
+        input_sentence_append_eos = append_eos2sentence(sentence_fw, self.config)
+        relations_append_eos = append_eos2relations(len(sentence_fw), self.config)
+        return [standard_outputs, sentence_length, sentence_fw, sentence_bw, [None] * len(sentence_fw),
+                [None] * len(sentence_fw), input_sentence_append_eos, relations_append_eos, all_triples_id]
+
+
 
 
 if __name__ == '__main__':
@@ -721,18 +737,6 @@ if __name__ == '__main__':
     import const
     config_filename = './config.json'
     config = const.Config(config_filename=config_filename, cell_name='lstm', decoder_type='one')
-    p=CCKSPrepare(config)
-    data=p.load_data('test')
-    # print(len(data))
-    # for token,label in zip(data[0],data[1]):
-    #     print(len(token), len(label))
-    #     if(len(label)!=0):
-    #         print(len(label)/(len(token)+1))
-    #     for i in range(5):
-    #
-    #         if((i+1)*(len(token)+1)<=len(label)):
-    #             l=label[i*(len(token)+1):(i+1)*(len(token)+1)]
-    #             if(l[0]>=30):
-    #                 print(l[0])
-
-    p.test_process(data)
+    p=CCKSMrcPrepare(config)
+    data=p.load_data('train')
+    p.process(data)

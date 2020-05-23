@@ -57,6 +57,7 @@ class Evaluator(object):
         lengths = torch.Tensor(batch.input_sentence_length).int().tolist()
 
         pred_action_list, pred_logits_list = seq2seq(sentence, sentence_eos, lengths)
+
         # pred_action_list = torch.cat(list(map(lambda x: x.unsqueeze(1), pred_action_list)), dim=1)
 
         return pred_action_list, pred_logits_list
@@ -82,27 +83,28 @@ class Evaluator(object):
         data.reset()
         return f1, precision, recall
 
-    def rel_test(self) -> Tuple[Tuple[float, float, float]]:
+    def rel_test(self,seq2seq) -> Tuple[Tuple[float, float, float]]:
         predicts = []
         gold = []
-        data = prepare.load_data(mode)
+        data = prepare.load_data(self.mode)
         if mode == 'test':
             data = prepare.test_process(data)
         else:
             data = prepare.process(data)
         data = data_prepare.Data(data, config.batch_size, config)
-        for batch_i in range(data.batch_number):
+        for batch_i in tqdm(range(data.batch_number)):
+
             batch_data = data.next_batch(is_random=False)
-            pred_action_list, pred_logits_list = self.test_step(batch_data)
-            pred_action_list = pred_action_list.cpu().numpy()
+
+            pred_action_list, pred_logits_list = self.test_step(batch_data,seq2seq)
 
             predicts.extend(pred_action_list)
             gold.extend(batch_data.all_triples)
-
+        f1, precision, recall = evaluation.compare(predicts, gold, self.config, show_rate=None, simple=True)
         (r_f1, r_precision, r_recall), (e_f1, e_precision, e_recall) = evaluation.rel_entity_compare(predicts, gold,
                                                                                                      self.config)
-        self.data.reset()
-        return (r_f1, r_precision, r_recall), (e_f1, e_precision, e_recall)
+
+        return (f1, precision, recall),(r_f1, r_precision, r_recall), (e_f1, e_precision, e_recall)
 
     def event_test(self, seq2seq) -> Tuple[Tuple[float, float, float]]:
         predicts = []
@@ -284,53 +286,65 @@ class SupervisedTrainer(object):
                 loss += now_loss + self.loss(pred_logits_list[triple_num * (self.max_sentence_length + 1):triple_num * (
                             self.max_sentence_length + 1) + 1, i], all_events[i, triple_num * (
                             self.max_sentence_length + 1):triple_num * (self.max_sentence_length + 1) + 1])
-        require_f1, require_precision, require_recall = evaluation.event_entity_yaoqiu_compare(
-            [pred_action_list[:, i] for i in range(pred_action_list.shape[1])], batch.standard_outputs,
-            self.config)
+        (r_f1, r_precision, r_recall), (e_f1, e_precision, e_recall) = evaluation.rel_entity_compare(pred_action_list, batch.all_triples,
+                                                                                                     self.config)
+        f1, precision, recall = evaluation.compare(pred_action_list, batch.all_triples,self.config, show_rate=None, simple=True)
         loss.backward()
         self.optimizer.step()
-        return loss, require_f1, require_precision, require_recall
+        return loss,(f1, precision, recall),(r_f1, r_precision, r_recall), (e_f1, e_precision, e_recall)
 
     def train(self, id,evaluator: Evaluator = None) -> None:
         # self.seq2seq = evaluator.load_model(self.seq2seq)
         train_loss = 0.
-        best_event_f1 = 0.0
-        best_entity_f1 = 0.0
-        best_f1 = 0.0
         train_f1, train_precision, train_recall = 0., 0., 0.
-        ll = ['epoch', 'step', 'train_loss', 'eval_loss', 'f1', 'precision', 'recall', 'r_f1', 'r_precision', 'r_recall', 'e_f1', 'e_precision',
-              'e_recall', 'event_f1', 'event_precision', 'event_recall', 'entity_f1', 'entity_precision', 'entity_recall']
-
-        with open('./log/' + self.config.dataset_name + '_' + self.config.cell_name + '_' + decoder_type + str(
+        train_rf1, train_rprecision, train_rrecall = 0., 0., 0.
+        train_ef1, train_eprecision, train_erecall = 0., 0., 0.
+        ll = ['epoch','step','train_loss','train_f1','train_precision','train_recall','train_rf1','train_rprecision','train_rrecall','train_ef1','train_eprecision','train_erecall']
+        with open('./log/train' + self.config.dataset_name + '_' + self.config.cell_name + '_' + decoder_type + str(
                 id) + '.txt', 'w', encoding='utf-8') as f:
             f.write('\t'.join(ll)+'\n')
+        ll = ['epoch',' step',' f1',' precision',' recall',' r_f1',' r_precision',' r_recall',' e_f1',' e_precision',' e_recall']
+        with open('./log/dev' + self.config.dataset_name + '_' + self.config.cell_name + '_' + decoder_type + str(
+                id) + '.txt', 'w', encoding='utf-8') as f:
+            f.write('\t'.join(ll) + '\n')
         for epoch in range(1, self.epoch_number + 1):
-
             for step in range(self.data.batch_number):
                 batch = self.data.next_batch(is_random=True)
-                loss, require_f1, require_precision, require_recall = self.train_step(batch)
+                loss, (f1, precision, recall),(r_f1, r_precision, r_recall), (e_f1, e_precision, e_recall) = self.train_step(batch)
+
                 train_loss += loss.item()
-                train_f1 += require_f1
-                train_precision += require_precision
-                train_recall += require_recall
-                # print(loss)
-                # print('train:epoch: %d\t step: %d \t loss:%f' % (epoch, step, loss))
+                train_f1 += f1
+                train_precision += precision
+                train_recall += recall
+                train_rf1+=r_f1
+                train_rprecision+=r_precision
+                train_rrecall+=r_recall
+                train_ef1 += e_f1
+                train_eprecision += e_precision
+                train_erecall += e_recall
                 if (step % 10 == 0):
                     if (step != 0):
                         train_loss /= 10.
-                        train_f1 /= 10.
-                        train_precision /= 10.
-                        train_recall /= 10.
+                        train_rf1 /= 10.
+                        train_rprecision /= 10.
+                        train_rrecall/= 10.
+                        train_ef1/= 10.
+                        train_eprecision/= 10.
+                        train_erecall /= 10.
                     print(
-                        "train \t epoch %d\t step %d \t trainloss: %f \t f1: %f  \t precision: %f  \t recall: %f  \t" % (
-                            epoch, step, train_loss, train_f1, train_precision, train_recall))
-                    ll = [epoch, step, train_loss, train_f1, train_precision, train_recall]
+                        "train \t epoch %d\t step %d \t trainloss: %f \t f1: %f  \t precision: %f  \t recall: %f  \t r_f1: %f  \t r_precision: %f  \t r_recall: %f  \t e_f1: %f  \t e_precision: %f  \t e_recall: %f  \t" % (
+                            epoch, step, train_loss, train_f1, train_precision, train_recall,train_rf1, train_rprecision, train_rrecall, train_ef1, train_eprecision, train_erecall))
+                    ll = [epoch, step, train_loss,train_f1, train_precision, train_recall,train_rf1, train_rprecision, train_rrecall, train_ef1, train_eprecision, train_erecall]
                     ll = [str(x) for x in ll]
                     with open(
                             './log/train' + self.config.dataset_name + '_' + self.config.cell_name + '_' + decoder_type + str(
                                 id) + '.txt', 'a', encoding='utf-8') as f:
                         f.write('\t'.join(ll) + '\n')
-                    train_loss, train_f1, train_precision, train_recall = 0., 0., 0., 0.
+                    train_loss = 0.
+                    train_f1, train_precision, train_recall = 0., 0., 0.
+                    train_rf1, train_rprecision, train_rrecall = 0., 0., 0.
+                    train_ef1, train_eprecision, train_erecall = 0., 0., 0.
+
                 if (step % 200 == 0):
 
                     model_path = os.path.join('saved_model',
@@ -340,55 +354,23 @@ class SupervisedTrainer(object):
 
                     if evaluator:
                         with torch.no_grad():
-                            # evaluator.load_model()
-                            # f1, precision, recall = evaluator.test()
-                            eval_loss, (require_f1, require_precision, require_recall), (f1, precision, recall), (
-                            r_f1, r_precision, r_recall), (
-                                e_f1, e_precision, e_recall), (
-                                event_f1, event_precision, event_recall), (
-                                entity_f1, entity_precision, entity_recall) = evaluator.event_test(self.seq2seq)
 
+                            (f1, precision, recall), (r_f1, r_precision, r_recall), (e_f1, e_precision, e_recall)=evaluator.rel_test(self.seq2seq)
                             print('_' * 60)
-                            print("epoch %d\t step %d \t evalloss: %f  \t" % (
-                                epoch, step, eval_loss))
-                            print("require_event_entity \t F1: %f \t P: %f \t R: %f \t" % (
-                            require_f1, require_precision, require_recall))
-                            print("total \t F1: %f \t P: %f \t R: %f \t" % (f1, precision, recall))
-                            print("event \t F1: %f \t P: %f \t R: %f \t" % (r_f1, r_precision, r_recall))
+                            print("epoch %d\t step %d \t F1: %f \t P: %f \t R: %f \t" %(
+                                epoch, step,f1, precision, recall))
+                            print("event_mrc \t F1: %f \t P: %f \t R: %f \t" % (r_f1, r_precision, r_recall))
                             print("entity \t F1: %f \t P: %f \t R: %f \t" % (e_f1, e_precision, e_recall))
-                            print("macro event \t F1: %f \t P: %f \t R: %f \t" % (
-                                event_f1, event_precision, event_recall))
-                            print("macro entity \t F1: %f \t P: %f \t R: %f \t" % (
-                                entity_f1, entity_precision, entity_recall))
                             print('_' * 60)
 
-                            ll = [epoch, step, require_f1, require_precision, require_recall, eval_loss, f1, precision,
-                                  recall, r_f1, r_precision, r_recall, e_f1, e_precision, e_recall, event_f1,
-                                  event_precision, event_recall, entity_f1, entity_precision, entity_recall]
+                            ll = [epoch, step,f1, precision, recall, r_f1, r_precision, r_recall, e_f1, e_precision, e_recall]
                             ll = [str(x) for x in ll]
                             with open(
                                     './log/dev' + self.config.dataset_name + '_' + self.config.cell_name + '_' + decoder_type + str(
                                             id) + '.txt', 'a', encoding='utf-8') as f:
                                 f.write('\t'.join(ll) + '\n')
                             train_loss = 0.0
-                            if (best_f1 < f1):
-                                best_f1 = f1
-                                model_path = os.path.join('saved_model',
-                                                          'best_' + self.config.dataset_name + '_' + self.config.cell_name + '_' + decoder_type + str(
-                                                              id) + '.pkl')
-                                torch.save(self.seq2seq.state_dict(), model_path)
-                            if (best_event_f1 < event_f1):
-                                best_event_f1 = event_f1
-                                model_path = os.path.join('saved_model',
-                                                          'event_best_' + self.config.dataset_name + '_' + self.config.cell_name + '_' + decoder_type + str(
-                                                              id) + '.pkl')
-                                torch.save(self.seq2seq.state_dict(), model_path)
-                            if (best_entity_f1 < entity_f1):
-                                best_entity_f1 = entity_f1
-                                model_path = os.path.join('saved_model',
-                                                          'entity_best_' + self.config.dataset_name + '_' + self.config.cell_name + '_' + decoder_type + str(
-                                                              id) + '.pkl')
-                                torch.save(self.seq2seq.state_dict(), model_path)
+
 
 
 if __name__ == '__main__':
@@ -405,6 +387,8 @@ if __name__ == '__main__':
         prepare = data_prepare.WebNLGPrepare(config)
     elif config.dataset_name == const.DataSet.CCKS2020EVENT:
         prepare = data_prepare.CCKSPrepare(config)
+    elif config.dataset_name == const.DataSet.CCKSMRC:
+        prepare = data_prepare.CCKSMrcPrepare(config)
     else:
         print('illegal dataset name: %s' % config.dataset_name)
         exit()

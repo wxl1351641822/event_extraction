@@ -8,7 +8,7 @@ import logging
 import numpy as np
 import pandas as pd
 import data_prepare
-from data.event import data_process
+from data.event_mrc import data_process
 
 logger = logging.getLogger('mylogger')
 
@@ -297,9 +297,9 @@ def event_entity_yaoqiu_compare(predict,gold,config):
     return (fpr(correct))
 
 def get_result(ids, sentences, lengths, predicts, config):
-    # entity2id=data_process.read_dic('./work/event/entity2id.txt')
-    eventlist = data_process.read_list('./data/event/event2id.txt')
-    wordlist = data_process.read_list('./data/event/word2id.txt')
+    # entity2id=data_process.read_dic('./work/event_mrc/entity2id.txt')
+    eventlist = data_process.read_list('./data/event_mrc/event2id.txt')
+    wordlist = data_process.read_list('./data/event_mrc/word2id.txt')
 
     result_id = []
     result_event = []
@@ -329,7 +329,7 @@ def get_result(ids, sentences, lengths, predicts, config):
     data['id'] = result_id
     data['事件类型'] = result_event
     data['事件主体'] = result_entity
-    data.to_csv('./data/event/result.txt', index=False, sep='\t')
+    data.to_csv('./data/event_mrc/result.txt', index=False, sep='\t')
 
 
 def compare_(predict, gold, name, config, show_rate=None, is_show=True):
