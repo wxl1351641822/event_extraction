@@ -34,7 +34,11 @@ def get_data2id(c_data, max_seq_len, path,ispredict=False):
                     # end = sent.find(entity) + len(entity)-1
                     if(beg!=-1):
                         answers.append({"text":entity,"answer_start":beg})
+                    # else:
+                    #     answers.append({"text":'',"answer_start":-1})
+                        # pass
                 if(len(answers)!=0):
+                    question_num += 1
                     qas.append({"id":ids[i%(len(ids))],"question":question,"answers":answers})
                 elif(ispredict):
                     qas.append({"id":str(ids)+'_'+str(s)+'_'+str(i),"question":question})
@@ -92,3 +96,4 @@ def get_result(id,train_i,max_seq_len):
 
 
 
+get_train_dev(200)

@@ -136,7 +136,8 @@ def change_task(task,train_i):
         logger.train("step %d / %d: loss=%.5f %s[step/sec: %.2f]" %
                      (self.current_step, self.max_train_steps, avg_loss,
                       log_scores, run_speed))
-        with open('./work/event/cls_log_{}train.txt'.format(train_i), 'a', encoding='utf-8') as f:
+        log = [str(x) for x in log]
+        with open('./work/log/cls_log_{}train.txt'.format(train_i), 'a', encoding='utf-8') as f:
             f.write(','.join(log) + '\n')
 
     # def new_run_step_event(self,run_states):
@@ -169,7 +170,8 @@ def change_task(task,train_i):
         logger.eval(
             "[%s dataset evaluation result] loss=%.5f %s[step/sec: %.2f]" %
             (self.phase, eval_loss, log_scores, run_speed))
-        with open('./work/event/cls_log_{}dev.txt'.format(train_i),'a',encoding='utf-8') as f:
+        log = [str(x) for x in log]
+        with open('./work/log/cls_log_{}dev.txt'.format(train_i),'a',encoding='utf-8') as f:
             f.write(','.join(log)+'\n')
 
         eval_scores_items = eval_scores.items()
