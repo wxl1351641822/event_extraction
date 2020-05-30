@@ -50,17 +50,17 @@ log_interval = 50
 eval_interval = 200
 
 parser = argparse.ArgumentParser(__doc__)
-parser.add_argument("--seed", type=int, default=1666, help="Number of epoches for fine-tuning.")
+parser.add_argument("--seed", type=int, default=0, help="Number of epoches for fine-tuning.")
 parser.add_argument("--num_epoch", type=int, default=4, help="Number of epoches for fine-tuning.")
 parser.add_argument("--use_gpu", type=ast.literal_eval, default=True, help="Whether use GPU for finetuning, input should be True or False")
-parser.add_argument("--learning_rate", type=float, default=3e-5, help="Learning rate used to train with warmup.")
+parser.add_argument("--learning_rate", type=float, default=1e-5, help="Learning rate used to train with warmup.")
 parser.add_argument("--lr_scheduler", type=str, default="linear_decay", help="Directory to model checkpoint")
 parser.add_argument("--weight_decay", type=float, default=0.01, help="Weight decay rate for L2 regularizer.")
-parser.add_argument("--warmup_proportion", type=float, default=0.0, help="Warmup proportion params for warmup strategy")
+parser.add_argument("--warmup_proportion", type=float, default=0.1, help="Warmup proportion params for warmup strategy")
 parser.add_argument("--checkpoint_dir", type=str, default='model_cls/', help="Directory to model checkpoint")
 parser.add_argument("--model", type=str, default="bert_chinese_L-12_H-768_A-12", help="Directory to model checkpoint")
 parser.add_argument("--max_seq_len", type=int, default=203, help="Number of words of the longest seqence.")
-parser.add_argument("--batch_size", type=int, default=8, help="Total examples' number in batch for training.")
+parser.add_argument("--batch_size", type=int, default=32, help="Total examples' number in batch for training.")
 parser.add_argument("--use_data_parallel", type=ast.literal_eval, default=True, help="Whether use data parallel.")
 
 
@@ -272,13 +272,13 @@ def one(train_i,args):
     value = [train_i, cls_task.best_score] + list(args.__dict__.values())
     value = [str(x) for x in value]
     with open('./work/log/cls_log.txt', 'a', encoding='utf-8') as f:
-        f.write(','.join(value)+'\n')
+        f.write(','.join(value)+',-\n')
     return cls_task.best_score,value[2:]
 
 if __name__=='__main__':
     args = parser.parse_args()
     title = ['id', 'auc'] + list(args.__dict__.keys())
     with open('./work/log/cls_log.txt', 'a', encoding='utf-8') as f:
-        f.write(','.join(title)+'\n')
+        f.write(','.join(title)+',备注\n')
     train_i=0
     one(train_i,args)

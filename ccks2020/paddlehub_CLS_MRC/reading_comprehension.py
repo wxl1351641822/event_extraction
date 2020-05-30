@@ -26,7 +26,7 @@ from demo_dataset import DuReader
 
 # yapf: disable
 parser = argparse.ArgumentParser(__doc__)
-parser.add_argument("--seed", type=int, default=1666, help="Number of epoches for fine-tuning.")
+parser.add_argument("--seed", type=int, default=0, help="Number of epoches for fine-tuning.")
 parser.add_argument("--num_epoch", type=int, default=1, help="Number of epoches for fine-tuning.")
 parser.add_argument("--use_gpu", type=ast.literal_eval, default=True, help="Whether use GPU for finetuning, input should be True or False")
 parser.add_argument("--learning_rate", type=float, default=3e-5, help="Learning rate used to train with warmup.")
@@ -198,7 +198,7 @@ def one(id,train_i,args):
     value = [id,reading_comprehension_task.best_score]+list(args.__dict__.values())
     value = [str(x) for x in value]
     with open('./work/log/MRC_log.txt', 'a', encoding='utf-8') as f:
-        f.write(','.join(value)+'\n')
+        f.write(','.join(value)+',-\n')
     return reading_comprehension_task.best_score,value[2:]
 
 if __name__ == '__main__':
@@ -206,6 +206,6 @@ if __name__ == '__main__':
     args = parser.parse_args()
     title = ['id', 'score'] + list(args.__dict__.keys())
     with open('./work/log/MRC_log.txt', 'a', encoding='utf-8') as f:
-        f.write(','.join(title)+'\n')
+        f.write(','.join(title)+',备注\n')
     one(id,train_i,args)
 

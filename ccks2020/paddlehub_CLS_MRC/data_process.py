@@ -34,12 +34,9 @@ def get_data2id(c_data, max_seq_len, path,ispredict=False):
                     # end = sent.find(entity) + len(entity)-1
                     if(beg!=-1):
                         answers.append({"text":entity,"answer_start":beg})
-                    # else:
-                    #     answers.append({"text":'',"answer_start":-1})
-                        # pass
                 if(len(answers)!=0):
-                    question_num += 1
-                    qas.append({"id":ids[i%(len(ids))],"question":question,"answers":answers})
+                    qas.append({"id":ids[i%(len(ids))]+'_'+str(s)+'_'+str(i),"question":question,"answers":answers})
+                    question_num+=1
                 elif(ispredict):
                     qas.append({"id":str(ids)+'_'+str(s)+'_'+str(i),"question":question})
                     question_num+=1
@@ -73,7 +70,7 @@ def get_predict(id,train_i,max_seq_len):
     get_data2id(predict,max_seq_len,'./work/event/{}predict.json'.format(id),ispredict=True)
 
 
-def get_result(id,train_i,max_seq_len):
+def get_result(train_i,id,max_seq_len):
     c_data = pd.read_csv('./work/result/{}event_predict.csv'.format(train_i), header=None, sep='\t')
     with open('./work/result/submit{}_{}.json'.format(train_i,id), "r") as reader:
         submit = json.load(reader)
@@ -96,4 +93,3 @@ def get_result(id,train_i,max_seq_len):
 
 
 
-get_train_dev(200)
