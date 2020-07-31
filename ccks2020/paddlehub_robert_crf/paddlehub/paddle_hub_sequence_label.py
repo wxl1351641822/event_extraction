@@ -22,6 +22,8 @@ import shutil
 import os
 import csv
 import io
+import json
+import random
 import pandas as pd
 import numpy as np
 import paddlehub as hub
@@ -30,45 +32,18 @@ from paddlehub.common.logger import logger
 from paddlehub.dataset import InputExample
 from datetime import datetime
 
-from Sequence_Reader import SequenceLabelReader
-from sequence_task import SequenceLabelTask
+# from Sequence_Reader import SequenceLabelReader
+# from sequence_task import SequenceLabelTask
+from paddlehub import SequenceLabelTask
+from paddlehub.reader import SequenceLabelReader
 
-from paddlehub_dataprocess import write_by_lines
+from paddlehub_dataprocess import write_by_lines,read_by_lines
 from paddlehub_dataprocess import write_title
 from paddlehub_dataprocess import write_log
-
-
-# yapf: disable
-parser = argparse.ArgumentParser(__doc__)
-parser.add_argument("--num_epoch", type=int, default=7, help="Number of epoches for fine-tuning.")
-parser.add_argument("--use_gpu", type=ast.literal_eval, default=False,
-                    help="Whether use GPU for finetuning, input should be True or False")
-parser.add_argument("--learning_rate", type=float, default=3e-5, help="Learning rate used to train with warmup.")
-parser.add_argument("--data_dir", type=str, default='work/', help="data save dir")
-parser.add_argument("--schema_path", type=str, default='work/event_schema/event_schema.json', help="schema path")
-parser.add_argument("--train_data", type=str, default='work/train_data/train.json', help="train data")
-parser.add_argument("--dev_data", type=str, default='work/dev_data/dev.json', help="dev data")
-parser.add_argument("--test_data", type=str, default='work/dev_data/dev.json', help="test data")
-parser.add_argument("--predict_data", type=str, default='work/test1_data/test1.json', help="predict data")
-parser.add_argument("--do_train", type=ast.literal_eval, default=True, help="do train")
-parser.add_argument("--do_predict", type=ast.literal_eval, default=True, help="do predict")
-parser.add_argument("--do_model", type=str, default="trigger", choices=["trigger", "role"], help="trigger or role")
-parser.add_argument("--weight_decay", type=float, default=0.01, help="Weight decay rate for L2 regularizer.")
-parser.add_argument("--warmup_proportion", type=float, default=0.1, help="Warmup proportion params for warmup strategy")
-parser.add_argument("--max_seq_len", type=int, default=256, help="Number of words of the longest seqence.")
-parser.add_argument("--eval_step", type=int, default=200, help="eval step")
-parser.add_argument("--model_save_step", type=int, default=3000, help="model save step")
-parser.add_argument("--batch_size", type=int, default=32, help="Total examples' number in batch for training.")
-parser.add_argument("--add_crf", type=ast.literal_eval, default=True, help="add crf")
-parser.add_argument("--checkpoint_dir", type=str, default='models/trigger', help="Directory to model checkpoint")
-parser.add_argument("--use_data_parallel", type=ast.literal_eval, default=True, help="Whether use data parallel.")
-parser.add_argument("--random_seed", type=int, default=1666, help="seed")
-# parser.add_argument("--dropout", type=float, default=0.0, help="dropout")
-parser.add_argument(
-    "--saved_params_dir",
-    type=str,
-    default="",
-    help="Directory for saving model during ")
+predict_path='./data/data34808/test_unlabel.csv'
+predict_data_path='./work/predict.txt'
+output_path='work/test1_data/'
+output_predict_data_path=output_path+'test1.json'
 
 
 def is_path_valid(path):
@@ -79,10 +54,51 @@ def is_path_valid(path):
     if not os.path.exists(dirname):
         os.mkdir(dirname)
     return True
+# yapf: disable
+id=6
+parser = argparse.ArgumentParser(__doc__)
+parser.add_argument("--num_epoch", type=int, default=3, help="Number of epoches for fine-tuning.")
+parser.add_argument("--use_gpu", type=ast.literal_eval, default=True,
+                    help="Whether use GPU for finetuning, input should be True or False")
+parser.add_argument("--learning_rate", type=float, default=3e-5, help="Learning rate used to train with warmup.")
+parser.add_argument("--data_dir", type=str, default='work/', help="data save dir")
+# parser.add_argument("--schema_path", type=str, default='work/event_schema/event_schema.json', help="schema path")
+# parser.add_argument("--train_data", type=str, default='work/train_data/train.json', help="train data")
+# parser.add_argument("--dev_data", type=str, default='work/dev_data/dev.json', help="dev data")
+# parser.add_argument("--test_data", type=str, default='work/dev_data/dev.json', help="test data")
+# parser.add_argument("--predict_data", type=str, default='work/test1_data/test1.json', help="predict data")
+parser.add_argument("--do_train", type=ast.literal_eval, default=True, help="do train")
+parser.add_argument("--do_predict", type=ast.literal_eval, default=True, help="do predict")
+parser.add_argument("--do_model", type=str, default="trigger", choices=["trigger", "role"], help="trigger or role")
+parser.add_argument("--weight_decay", type=float, default=0.01, help="Weight decay rate for L2 regularizer.")
+parser.add_argument("--warmup_proportion", type=float, default=0.1, help="Warmup proportion params for warmup strategy")
+parser.add_argument("--max_seq_len", type=int, default=256, help="Number of words of the longest seqence.")
+parser.add_argument("--eval_step", type=int, default=200, help="eval step")
+parser.add_argument("--model_save_step", type=int, default=3000, help="model save step")
+parser.add_argument("--batch_size", type=int, default=16, help="Total examples' number in batch for training.")
+parser.add_argument("--add_crf", type=ast.literal_eval, default=True, help="add crf")
+parser.add_argument("--checkpoint_dir", type=str, default='models/trigger', help="Directory to model checkpoint")
+parser.add_argument("--model_name", type=str, default='chinese-roberta-wwm-ext-large', help="Directory to model checkpoint")
+parser.add_argument("--use_data_parallel", type=ast.literal_eval, default=True, help="Whether use data parallel.")
+parser.add_argument("--random_seed", type=int, default=1666, help="seed")
+# parser.add_argument("--dropout", type=float, default=0.0, help="dropout")
+
+parser.add_argument(
+    "--saved_params_dir",
+    type=str,
+    default="",
+    help="Directory for saving model during ")
+
+def regrex_data(x):##去除空格啥的
+    x=x.replace(' ','')
+    x=x.replace(' ','')
+    x=x.replace(' ','')
+    x=x.replace('　','')
+    return x
 
 
 def get_train_dev():
-    c = pd.read_csv('./work/data.csv', header=None,sep='\t')
+    c = pd.read_csv('./work/data.csv', header=None, sep='\t')
 
     spl = int(c.shape[0] * 0.8)
     train = c[:spl]
@@ -94,52 +110,62 @@ def get_train_dev():
         all_label = []
         s = ['text_a\tlabel']
         for sent, dic in c_data[[1, 2]].values:
-
+            sent=regrex_data(sent)
             sentence = list(sent)
 
             sent_length.append(len(sentence))
             dic = eval(dic)
-            label = []
+            label = ['O'] * len(sentence)
             for k, v in dic.items():
                 # print(k,v)
 
-                entity_label = ['O'] * len(sentence)
+                entity_label = label
                 # print(entity2id)
                 for entity in v:
                     beg = sent.find(entity)
                     end = sent.find(entity) + len(entity) - 1
-                    if (beg == end):
-                        entity_label[beg] = 'S-' + k
-                    else:
-                        entity_label[beg] = 'B-' + k
-                        entity_label[end] = 'E-' + k
-                        for i in range(beg + 1, end):
-                            entity_label[i] = 'I-' + k
+                    # if (beg == end):
+                    #     entity_label[beg] = 'S-' + k
+                    # else:
+                    entity_label[beg] = 'B-' + k
+                    # entity_label[end] = 'E-' + k
+                    for i in range(beg + 1, end+1):
+                        entity_label[i] = 'I-' + k
                     # print(sent[beg:end+1],entity_label[beg:end+1])
-
+                    # print(entity,sent[beg:end+1],entity_label[beg:end+1])
                     # print(sent,v,sent.find(entity),sent[sent.find(entity)],sent[sent.find(entity)+len(entity)-1])
-                    sent.find(entity)
-                label.extend(entity_label)
-            if(len(label)==0):
-                label=['0']* len(sentence)
-            s.append(' '.join(sentence) + '\t' + ' '.join(label))
+                    # sent.find(entity)
+                label=entity_label
+            if (len(label) == 0):
+                label = ['0'] * len(sentence)
+            s.append('\002'.join(sentence) + '\t' + '\002'.join(label))
+            # print(len(sentence),len(label))
+            # if(len(sentence)!=len(label)):
+            #     print(sentence,label,len(sentence),len(label))
 
         with open(path, 'w', encoding='utf-8') as f:
             f.write('\n'.join(s))
         return s
 
     train1 = get_data2id(train, './work/train.txt')
-    dev1 = get_data2id(train, './work/dev.txt')
+    dev1 = get_data2id(dev, './work/dev.txt')
+    return train1,dev1
+
+
 def get_predict():
-    data = pd.read_csv('./data/data34808/test_unlabel.csv', sep='\t', header=None).fillna('')
-    predict = pd.DataFrame()
-    predict['text_a'] = [' '.join(list(x)) for x in data[1].values]
-    predict.to_csv('./work/predict.txt', index=False)
+    data = pd.read_csv(predict_path, sep='\t', header=None).fillna('')
+    # predict = pd.DataFrame()
+    # predict['text_a'] = ['\002'.join(list(regrex_data(x))) for x in data[1].values]
+    # predict.to_csv(predict_data_path, index=False)
     predict_sents = []
+    predict_list=[]
     for id, text in data.values:
         # print(id,text)
+        text=regrex_data(text)
         predict_sents.append({'id': id, 'text': text})
-    return list(predict['text_a'].values), predict_sents
+        predict_list.append('\002'.join(list(text)))
+
+    return predict_list, predict_sents
 
 
 def read_label(path):
@@ -152,11 +178,11 @@ def read_label(path):
 
 # yapf: enable.
 def process_data(args):
-    # get_train_dev()
+    train1,dev1=get_train_dev()
     predict_data, predict_sents = get_predict()
 
-    # write_by_lines("{}/{}_train.tsv".format(args.data_dir, args.do_model), train_data)
-    # write_by_lines("{}/{}_dev.tsv".format(args.data_dir, args.do_model), dev_data)
+    write_by_lines("{}/train.txt".format(args.data_dir), train1)
+    write_by_lines("{}/dev.txt".format(args.data_dir), dev1)
     # write_by_lines("{}/{}_test.tsv".format(args.data_dir, args.do_model), test_data)
     write_by_lines("{}/predict.txt".format(args.data_dir), predict_data)
 
@@ -183,6 +209,7 @@ class EEDataset(BaseNLPDataset):
             predict_file_with_header=True,
             # 数据集类别集合
             label_list=labels)
+
     def _read_file(self, input_file, phase=None):
         """Reads a tab separated value file."""
         has_warned = False
@@ -195,7 +222,7 @@ class EEDataset(BaseNLPDataset):
                     ncol = len(line)
                     if self.if_file_with_header[phase]:
                         continue
-                if(len(line)!=ncol):
+                if (len(line) != ncol):
                     print(line)
                 if phase != "predict":
                     if ncol == 1:
@@ -231,6 +258,7 @@ class EEDataset(BaseNLPDataset):
                             "the predict file: %s has too many columns (should <=2)"
                             % (input_file))
                 examples.append(example)
+                # print(example)
             return examples
 
 
@@ -359,7 +387,7 @@ def get_task(args, schema_labels, id):
     # 加载PaddleHub 预训练模型ERNIE Tiny/RoBERTa large
     # 更多预训练模型 https://www.paddlepaddle.org.cn/hublist?filter=en_category&value=SemanticModel
     # model_name = "ernie_tiny"
-    model_name = "chinese-roberta-wwm-ext-large"
+    model_name = args.model_name
     module = hub.Module(name=model_name)
     inputs, outputs, program = module.context(
         trainable=True, max_seq_len=args.max_seq_len)
@@ -456,7 +484,7 @@ def predict_by_model_path(args, model_path, schema_labels, predict_data, predict
         for sent, r_label in zip(predict_sents, results):
             sent["labels"] = r_label
             ret.append(json.dumps(sent, ensure_ascii=False))
-        write_by_lines("{}.{}.{}.pred".format(args.predict_data, args.do_model, id), ret)
+        write_by_lines("{}.{}.{}.pred".format(output_predict_data_path, args.do_model, id), ret)
 
 
 def predict_model_path():
@@ -469,6 +497,75 @@ def predict_model_path():
         print(id, model_path)
         predict_by_model_path(args, model_path, schema_labels, predict_data, predict_sents, id)
 
+
+def get_submit_postprocess(args,id):
+    results = read_by_lines("{}.{}.{}.pred".format(output_predict_data_path, args.do_model, id))
+    submit = []
+    count = 0
+    for j in range(len(results)):
+        json_result = json.loads(results[j])
+        text = json_result['text']
+        label = json_result["labels"]
+        now_label = ''
+        now_entity = ''
+        count = 0
+        # print(len(text),len(label))
+        for i, l in enumerate(label):
+            # print(l,text[i])
+            if (l == 'O'):
+                if (now_label != ''):
+                    count += 1
+                    submit.append('\t'.join([str(json_result['id']), now_label, now_entity]))
+                    now_label = ''
+                    now_entity = ''
+            else:
+                if (l.startswith('B-')):
+                    now_label = l[2:]
+                    now_entity = text[i]
+                else:
+                    now_entity += text[i]
+        # if(count==0):
+        #     submit.append('\t'.join([str(json_result['id']),'','',text,str(label)]))
+        # print(submit)
+    write_by_lines("{}/{}ucas_valid_result.csv".format(output_path,id), submit)
+
+def get_check_postprocess(args,id):
+    import json
+    results = read_by_lines("{}.{}.{}.pred".format(output_predict_data_path, args.do_model, id))
+    print(results[0])
+    submit = []
+    count = 0
+    for j in range(len(results)):
+        json_result = json.loads(results[j])
+        text = json_result['text']
+        label = json_result["labels"]
+        now_label = ''
+        now_entity = -1
+        count = 0
+        # print(len(text),len(label))
+        for i, l in enumerate(label):
+            # print(l,text[i])
+            if (l == 'O'):
+                if (now_label != ''):
+                    count += 1
+                    submit.append('\t'.join([str(json_result['id']), now_label, text[now_entity:i],
+                                             str(json_result['input'][0][now_entity * 2:i * 2]),
+                                             str(json_result['input'][0]), text, str(label)]))
+                    now_label = ''
+                    # now_entity=-1
+            else:
+                if (l.startswith('B-')):
+                    now_label = l[2:]
+                    now_entity = i
+                elif (now_label != ''):
+                    # if(len(submit)>1):
+                    #     submit.pop()
+                    now_label = label[i][2:]
+
+        # if(count==0):
+        #     submit.append('\t'.join([str(json_result['id']),'','',text,str(label)]))
+        # print(submit)
+    write_by_lines("{}/{}ucas_valid_result_check.csv".format(output_path,id), submit)
 
 def one(args, schema_labels, predict_data, predict_sents, id):
     seq_label_task, reader = get_task(args, schema_labels, id)
@@ -488,7 +585,8 @@ def one(args, schema_labels, predict_data, predict_sents, id):
         ret = []
         id2label = {val: key for key, val in reader.label_map.items()}
         input_data = [[d] for d in predict_data]
-        run_states = seq_label_task.predict(data=input_data[1:])
+        print(input_data[:10])
+        run_states = seq_label_task.predict(data=input_data)
         results = []
         for batch_states in run_states:
             batch_results = batch_states.run_results
@@ -502,236 +600,46 @@ def one(args, schema_labels, predict_data, predict_sents, id):
                 results.append(seq_result)
 
         ret = []
-        for sent, r_label in zip(predict_sents, results):
+        for sent,input, r_label in zip(predict_sents,input_data,results):
+            sent["input"]=input
             sent["labels"] = r_label
             ret.append(json.dumps(sent, ensure_ascii=False))
-        write_by_lines("{}.{}.{}.pred".format(args.predict_data, args.do_model, id), ret)
+        write_by_lines("{}.{}.{}.pred".format(output_predict_data_path, args.do_model, id), ret)
+        get_submit_postprocess(args, id)
+        get_check_postprocess(args, id)
 
-
-def one_autofinetune(args, schema_labels, predict_data, predict_sents, id):
-    seq_label_task, reader = get_task(args, schema_labels, id)
-    # 加载PaddleHub 预训练模型ERNIE Tiny/RoBERTa large
-    # 更多预训练模型 https://www.paddlepaddle.org.cn/hublist?filter=en_category&value=SemanticModel
-    # model_name = "ernie_tiny"
-
-    # PaddleHub Finetune API
-    # 将自动训练、评测并保存模型
-    if args.do_train:
-        print("start finetune and eval process")
-        seq_label_task.finetune_and_eval()
-        write_log('./work/log/' + args.do_model + '.txt', args, str(seq_label_task.best_score))
-
-    if args.do_predict:
-        print("start predict process")
-        ret = []
-        id2label = {val: key for key, val in reader.label_map.items()}
-        input_data = [[d] for d in predict_data]
-        run_states = seq_label_task.predict(data=input_data[1:])
-        results = []
-        for batch_states in run_states:
-            batch_results = batch_states.run_results
-            batch_infers = batch_results[0].reshape([-1]).astype(np.int32).tolist()
-            seq_lens = batch_results[1].reshape([-1]).astype(np.int32).tolist()
-            current_id = 0
-            for length in seq_lens:
-                seq_infers = batch_infers[current_id:current_id + length]
-                seq_result = list(map(id2label.get, seq_infers[1: -1]))
-                current_id += length if args.add_crf else args.max_seq_len
-                results.append(seq_result)
-
-        ret = []
-        for sent, r_label in zip(predict_sents, results):
-            sent["labels"] = r_label
-            ret.append(json.dumps(sent, ensure_ascii=False))
-        write_by_lines("{}.{}.{}.pred".format(args.predict_data, args.do_model, id), ret)
-    # Load model from the defined model path or not
-    #
-
-    # seq_label_task.finetune_and_eval()
-    # run_states = seq_label_task.eval()
-    # eval_avg_score, eval_avg_loss, eval_run_speed =seq_label_task._calculate_metrics(
-    #     run_states)
-    # Move ckpt/best_model to the defined saved parameters directory
-    best_model_dir = os.path.join(args.checkpoint_dir, "best_model")
-    if is_path_valid(args.saved_params_dir) and os.path.exists(best_model_dir):
-        shutil.copytree(best_model_dir, args.saved_params_dir)
-        shutil.rmtree(args.checkpoint_dir)
-    write_log('./work/log/' + args.do_model + '.txt', args, id + ',' + str(seq_label_task.best_score))
-    print(seq_label_task.best_score)
-    hub.report_final_result(seq_label_task.best_score)
-
-
-def autofinetune():
-    args = parser.parse_args()
-    # args.do_model = 'role'
-    schema_labels, predict_data, predict_sents = process_data(args)
-
-    # schema_labels=read_label('./work/entity2id.txt')
-    # # 创建一个 LogWriter 对象 log_writer
-    # log_writer = LogWriter("./log", sync_cycle=10)
-
-    id = str(datetime.now().strftime('%m%d%H%M'))
-    print(id)
-
-    args.checkpoint_dir = 'models/' + args.do_model + str(id)
-    one_autofinetune(args, schema_labels, predict_data, predict_sents, id)
-
-
-def lrsearch():
-    args = parser.parse_args()
-    # args.do_model = 'role'
-    schema_labels, predict_data, predict_sents = process_data(args)
-    # # 创建一个 LogWriter 对象 log_writer
-    # log_writer = LogWriter("./log", sync_cycle=10)
-    shiyan = """
-######################################################################################################################################
-                                trigger_lrgridsearch
-######################################################################################################################################
-    """
-    write_title('./work/log/' + args.do_model + '.txt', args, shiyan)
-    id = 1  # str(datetime.now().strftime('%m%d%H%M'))
-    print(id)
-    for lr in [3e-5, 1e-5, 1e-4]:
-        args.learning_rate = lr
-        args.checkpoint_dir = 'models/' + args.do_model + str(id)
-        one(args, schema_labels, predict_data, predict_sents, str(id))
-        id += 1
-
-
-def bzsearch():
-    args = parser.parse_args()
-    # args.do_model = 'role'
-    schema_labels, predict_data, predict_sents = process_data(args)
-    # # 创建一个 LogWriter 对象 log_writer
-    # log_writer = LogWriter("./log", sync_cycle=10)
-    shiyan = """
-######################################################################################################################################
-                                trigger_batch_size gridsearch
-######################################################################################################################################
-    """
-    write_title('./work/log/' + args.do_model + '.txt', args, shiyan)
-    id = 4  # str(datetime.now().strftime('%m%d%H%M'))
-    print(id)
-    for bz in [32, 16, 8]:
-        args.batch_size = bz
-        args.checkpoint_dir = 'models/' + args.do_model + str(id)
-        one(args, schema_labels, predict_data, predict_sents, str(id))
-        id += 1
-
-
-def lrbzsearch():
-    args = parser.parse_args()
-    # args.do_model = 'role'
-    schema_labels, predict_data, predict_sents = process_data(args)
-    # # 创建一个 LogWriter 对象 log_writer
-    # log_writer = LogWriter("./log", sync_cycle=10)
-    shiyan = """
-######################################################################################################################################
-                                trigger_batch_size lr gridsearch
-######################################################################################################################################
-    """
-    write_title('./work/log/' + args.do_model + '.txt', args, shiyan)
-    id = 7  # str(datetime.now().strftime('%m%d%H%M'))
-    print(id)
-    for bz in [32, 16, 8]:
-        args.batch_size = bz
-        for lr in [1e-6, 1e-5, 1e-4, 1e-3]:
-            args.learning_rate = lr
-            args.checkpoint_dir = 'models/' + args.do_model + str(id)
-            one(args, schema_labels, predict_data, predict_sents, str(id))
-            id += 1
-
-
-def get_data():
-    data={}
-    with open('./data/data34808/train_label.csv','r',encoding='utf-8') as f:
-        for line in f.readlines():
-            line_list=line[:-1].split('	')
-            if(len(line_list)!=4):
-                line_list=line[:-1].split('\\t')
-                if(len(line_list)!=4):
-                    line_list=line_list[:1]+line_list[1].split('\t')
-            # print(line_list[0])
-            if (line_list[2] == '涉嫌欺诈'):
-                print(line_list[2],line_list[3])
-            if line_list[1] in data.keys():
-                data[line_list[1]][0].append(line_list[0])
-                # print(data[line_list[1]][0])
-                # data[line_list[1]][0]
-                if(line_list[2]=='NaN'):
-                    continue
-                if line_list[2] in data[line_list[1]][1].keys():
-                    data[line_list[1]][1][line_list[2]].append(line_list[3])
-                else:
-                    data[line_list[1]][1][line_list[2]]=[line_list[3]]
-            else:
-                if (line_list[2] == 'NaN'):
-                    data[line_list[1]] = [[line_list[0]], {}]
-                else:
-                    
-                    data[line_list[1]]=[[line_list[0]],{line_list[2]:[line_list[3]]}]
-    # print(data)
-    idd=[]
-    sentences=[]
-    events=[]
-    for k,v in data.items():
-        sentences.append(k)
-        idd.append(str(v[0]))
-        events.append(str(v[1]))
-    c = pd.DataFrame()
-    c[0] = idd
-    c[1] = sentences
-    c[2] = events
-    c = c.sample(frac=1.0)
-    c.to_csv('./work/data.csv', header=None, index=False,sep='\t')
-
-
-if __name__ == "__main__":
+def testone():##按默认执行
     # get_data()
     args = parser.parse_args()
+    np.random.seed(args.random_seed)
+    random.seed(args.random_seed)
     args.do_model = 'role'
     schema_labels, predict_data, predict_sents = process_data(args)
-    shiyan = """
-    ######################################################################################################################################
-                                    trigger_batch_size lr gridsearch
-    ######################################################################################################################################
-        """
-    write_title('./work/log/' + args.do_model + '.txt', args, shiyan)
-    id = 0
+    # shiyan = """
+    #     """
+    # write_title('./work/log/' + args.do_model + '.txt', args, shiyan)
     args.checkpoint_dir = 'models/' + args.do_model + str(id)
     one(args, schema_labels, predict_data, predict_sents, str(id))
 
+def findlr():
+    id=9
+    args = parser.parse_args()
+    np.random.seed(args.random_seed)
+    random.seed(args.random_seed)
+    args.do_model = 'role'
+    schema_labels, predict_data, predict_sents = process_data(args)
 
-    # args = parser.parse_args()
+    for lr in [1e-5,5e-5,3e-4,3e-6]:
+        if(id<10):
+            continue
+        args.learning_rate=lr
+        args.checkpoint_dir = 'models/' + args.do_model + str(id)
+        one(args, schema_labels, predict_data, predict_sents, str(id))
+        id+=1
 
-    # args.do_model = 'role'
-    # schema_labels, predict_data, predict_sents = process_data(args)
-    # # # 创建一个 LogWriter 对象 log_writer
-    # # log_writer = LogWriter("./log", sync_cycle=10)
-    #
-    # id = str(datetime.now().strftime('%m%d%H%M%S'))
-    # print(id)
-    #
-    # args.checkpoint_dir = 'models/trigger' + str(id)
-    #
-    # predict_by_model_path(args,model_path, schema_labels, predict_data, predict_sents, id)
-#     shiyan="""
-# ########################################################################################################################
-#                                 实验1：lr
-# ########################################################################################################################
-#     """
+if __name__ == "__main__":
+    findlr()
+    # id=5
+    # testone()
 
-#
-# for do_model in ["trigger", "role"]:
-#     write_title('./work/log/' + args.do_model + '.txt', args, shiyan)
-# id = 1
-#
-# for lr in [2e-5,3e-5,5e-5,1e-4_实体识别_1_3的O,1e-5,1e-6]:
-#     args.learning_rate = lr
-#     for do_model in ["trigger", "role"]:
-#         checkpoint_dir = 'models/' + do_model
-#         args.do_model = do_model
-#         args.checkpoint_dir=checkpoint_dir+str(id)
-#         one(args,schema_labels,predict_data,predict_sents,id)
-#         id+=1
 

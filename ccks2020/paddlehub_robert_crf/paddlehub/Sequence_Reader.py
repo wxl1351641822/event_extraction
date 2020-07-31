@@ -107,31 +107,26 @@ class SequenceLabelReader(BaseNLPReader):
         return return_list
 
     def _reseg_token_label(self, tokens, tokenizer, phase, labels=None):
-
         if phase != "predict":
-
-            if  len(labels)!=len(tokens):
+            if len(tokens) != len(labels):
                 raise ValueError(
                     "The length of tokens must be same with labels")
             ret_tokens = []
             ret_labels = []
-
             for token, label in zip(tokens, labels):
-                for i in range(len(label)//len(token)):
-                    one_label=label[i * len(token): (i + 1) * len(token)]
-                    sub_token = tokenizer.tokenize(token)
-                    if len(sub_token) == 0:
-                        continue
-                    ret_tokens.extend(sub_token)
-                    ret_labels.append(one_label)
-                    if len(sub_token) < 2:
-                        continue
-                    sub_label = one_label
-                    if one_label.startswith("B-"):
-                        sub_label = "I-" + one_label[2:]
-                    ret_labels.extend([sub_label] * (len(sub_token) - 1))
-            # print(labels,ret_labels)
-            if len(labels)!=len(tokens):
+                sub_token = tokenizer.tokenize(token)
+                if len(sub_token) == 0:
+                    continue
+                ret_tokens.extend(sub_token)
+                ret_labels.append(label)
+                if len(sub_token) < 2:
+                    continue
+                sub_label = label
+                if label.startswith("B-"):
+                    sub_label = "I-" + label[2:]
+                ret_labels.extend([sub_label] * (len(sub_token) - 1))
+            # print(ret_tokens,ret_labels)
+            if len(ret_tokens) != len(ret_labels):
                 raise ValueError(
                     "The length of ret_tokens can't match with labels")
             return ret_tokens, ret_labels
@@ -153,22 +148,24 @@ class SequenceLabelReader(BaseNLPReader):
                                    tokenizer,
                                    phase=None):
 
-        tokens = tokenization.convert_to_unicode(example.text_a).split(u"")
-
+        tokens = tokenization.convert_to_unicode(example.text_a).split('\002')
+        # print(example)
         if phase != "predict":
-            labels = tokenization.convert_to_unicode(example.label).split(u"")
+            labels = tokenization.convert_to_unicode(example.label).split('\002')
+            # print(labels,tokens,len(labels),len(tokens))
             tokens, labels = self._reseg_token_label(
                 tokens=tokens, labels=labels, tokenizer=tokenizer, phase=phase)
 
             if len(tokens) > max_seq_length - 2:
                 tokens = tokens[0:(max_seq_length - 2)]
-                ll=[]
-                for i in range((len(labels)//len(tokens))):
-                    ll.extend(labels[i*(max_seq_length-2):(i+1)*(max_seq_length-2)])
-                labels=ll
+                # ll=[]
+                # for i in range((len(labels)//len(tokens))):
+                #     ll.extend(labels[i*(max_seq_length-2):(i+1)*(max_seq_length-2)])
+                # labels=ll
             no_entity_id = len(self.label_map) - 1
             # print(self.label_map)
             ll = []
+            print(tokens,labels,len(tokens),len(labels))
             for i in range((len(labels) // len(tokens))):
                 ll.extend([no_entity_id
                          ] +[self.label_map[label] for label in labels[i * (len(tokens)):(i + 1) * (len(tokens))]] +[no_entity_id

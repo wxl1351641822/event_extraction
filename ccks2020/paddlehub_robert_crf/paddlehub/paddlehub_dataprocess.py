@@ -210,6 +210,8 @@ def write_log(path,args,s):
     with open(path,'a') as f:
         f.write(s+','+val+'\n')
 
+
+
 if __name__ == "__main__":
 
     parser = argparse.ArgumentParser(

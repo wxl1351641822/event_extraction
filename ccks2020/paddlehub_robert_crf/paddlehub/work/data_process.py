@@ -66,7 +66,7 @@ def get_entity2id(event2id):
     for k in event2id.keys():
         # print(k)
         if k!='<NA>':
-            r.extend(['B-'+k,'M-'+k,'E-'+k,'S-'+k])
+            r.extend(['B-'+k,'I-'+k])
     r=['O']+list(set(r))
     entity_dic={}
     for i,w in enumerate(r):
