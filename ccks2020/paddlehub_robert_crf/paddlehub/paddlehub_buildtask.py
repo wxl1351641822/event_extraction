@@ -43,11 +43,11 @@ def is_path_valid(path):
     return True
 
 
-def get_mcls_train_dev(args):
+def get_mcls_train_dev(args,i):
     c = pd.read_csv('./work/data_cls.csv', header=None, sep='\t').sort_values(by=0,ascending=True)
-    spl = int(c.shape[0] * 0.8)
-    train = c[:spl]
-    dev = c[spl:]
+    margin = int(0.2 * c.shape[0])
+    dev = c[i * margin:(i + 1) * margin]
+    train = c.drop(list(range(i * margin,(i + 1) * margin)))
     train.to_csv('./work/train_cls.csv',header=None, sep='\t',index=False)
     dev.to_csv('./work/dev_cls.csv', header=None, sep='\t', index=False)
     return train,dev
@@ -68,12 +68,12 @@ def get_mcls_predict(args):
 
     return predict_list, predict_sents
 
-def get_train_dev(args):
+def get_train_dev(args,i):
     c = pd.read_csv('./work/data.csv', header=None, sep='\t')
     # print(c.shape[0])
-    spl = int(c.shape[0] * 0.8)
-    train = c[:spl]
-    dev = c[spl:]
+    margin=int(0.2*c.shape[0])
+    dev = c[i*margin:(i+1)*margin]
+    train = c.drop(list(range(i * margin,(i + 1) * margin)))
     # test=[]
 
     def get_data2id(c_data, path):
@@ -123,7 +123,7 @@ def get_train_dev(args):
                         elif(args.change_event=='BIO_event'):
                             if (entity_label[beg] != 'O'):
                                 count_n+=1
-                                print(count_n,entity,dic)
+                                # print(count_n,entity,dic)
                             entity_label[beg] = 'B-' + k
 
                             for i in range(beg + 1, end+1):
@@ -172,14 +172,14 @@ def get_predict(args):
 
 
 # yapf: enable.
-def process_data(args):
+def process_data(args,i=0):
     if args.do_model=='mcls':
-        train1,dev1=get_mcls_train_dev(args)
+        train1,dev1=get_mcls_train_dev(args,i)
         predict_data, predict_sents = get_mcls_predict(args)
         # write_by_lines("{}/predict_mcls.txt".format(args.data_dir), predict_data)
         schema_labels = read_label('{}/event2id.txt'.format(args.data_dir))[1:]
     else:
-        train1, dev1 = get_train_dev(args)
+        train1, dev1 = get_train_dev(args,i)
         predict_data, predict_sents = get_predict(args)
 
         write_by_lines("{}/train.txt".format(args.data_dir), train1)

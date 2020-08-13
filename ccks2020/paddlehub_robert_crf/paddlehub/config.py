@@ -40,7 +40,7 @@ parser.add_argument("--weight_decay", type=float, default=0.01, help="Weight dec
 parser.add_argument("--warmup_proportion", type=float, default=0.1, help="Warmup proportion params for warmup strategy")
 parser.add_argument("--max_seq_len", type=int, default=256, help="Number of words of the longest seqence.")
 parser.add_argument("--eval_step", type=int, default=200, help="eval step")
-parser.add_argument("--model_save_step", type=int, default=3000, help="model save step")
+parser.add_argument("--model_save_step", type=int, default=10000, help="model save step")
 parser.add_argument("--batch_size", type=int, default=16, help="Total examples' number in batch for training.")
 parser.add_argument("--add_crf", type=ast.literal_eval, default=True, help="add crf")
 parser.add_argument("--checkpoint_dir", type=str, default='models/trigger', help="Directory to model checkpoint")

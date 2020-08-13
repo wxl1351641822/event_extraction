@@ -31,7 +31,7 @@ def one(args, schema_labels, predict_data, predict_sents, id):
         ret = []
         id2label = {val: key for key, val in reader.label_map.items()}
         input_data = [[d] for d in predict_data]
-        print(input_data[:10])
+        # print(input_data[:10])
         run_states = seq_label_task.predict(data=input_data)
         results = []
         for batch_states in run_states:
@@ -85,7 +85,7 @@ def findlr():
         id+=1
 
 def change_event_label():
-    id=29
+    id=40
     args = parser.parse_args()
     np.random.seed(args.random_seed)
     random.seed(args.random_seed)
@@ -103,12 +103,13 @@ def change_event_label():
         else:
             args.add_rule=False
         args.change_event=event_label
-        schema_labels, predict_data, predict_sents = process_data(args)
-        args.checkpoint_dir = 'models/' + args.do_model + str(id)
-        one(args, schema_labels, predict_data, predict_sents, str(id))
-        get_submit_postprocess(args,id,check=True)
-        get_submit_postprocess(args, id, check=False)
-        id+=1
+        for i in range(5):
+            schema_labels, predict_data, predict_sents = process_data(args,i)
+            args.checkpoint_dir = 'models/' + args.do_model + str(id)
+            one(args, schema_labels, predict_data, predict_sents, str(id))
+            get_submit_postprocess(args,id,check=True)
+            get_submit_postprocess(args, id, check=False)
+            id+=1
 if __name__ == "__main__":
     # findlr()
     # id=17
