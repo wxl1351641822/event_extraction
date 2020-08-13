@@ -26,17 +26,19 @@ def one(args, schema_labels, predict_data, predict_sents, id):
         seq_label_task.finetune_and_eval()
         write_log('./work/log/' + args.do_model + '.txt', args, id + ',' + str(seq_label_task.best_score))
 
-    if args.do_predict:
+    if args.do_model=='role' and args.do_predict:
         print("start predict process")
         ret = []
         id2label = {val: key for key, val in reader.label_map.items()}
+
         input_data = [[d] for d in predict_data]
-        print(input_data[:10])
+        # print(input_data[:10])
         run_states = seq_label_task.predict(data=input_data)
         results = []
         for batch_states in run_states:
             batch_results = batch_states.run_results
             batch_infers = batch_results[0].reshape([-1]).astype(np.int32).tolist()
+            # print(batch_results)
             seq_lens = batch_results[1].reshape([-1]).astype(np.int32).tolist()
             current_id = 0
             for length in seq_lens:
@@ -52,11 +54,35 @@ def one(args, schema_labels, predict_data, predict_sents, id):
             ret.append(json.dumps(sent, ensure_ascii=False))
         write_by_lines("{}.{}.{}.pred".format(output_predict_data_path, args.do_model, id), ret)
         get_submit_postprocess(args, id)
-        get_submit_postprocess(args, id,check=True)
+        get_submit_postprocess(args, id, check=True)
+
+    if args.do_model == 'mcls' and args.do_predict:
+        input_data = predict_data
+        result=seq_label_task.predict(data=input_data, return_result=True)
+        ret = []
+        submit=[]
+        for s,r in zip(predict_sents,result):
+            s['labels'] = []
+            # print(r)
+            for r0 in r:
+                print(r0)
+                for k,v in r0.items():
+                    print(k,v)
+                    if(v==1):
+                        s['labels'].append(k)
+                        submit.append('\t'.join([str(s["id"]),k,s["entity"]]))
+            ret.append(json.dumps(s,ensure_ascii=False))
+        write_by_lines("{}.{}.{}.pred".format(output_predict_data_path, args.do_model, id), ret)
+        write_by_lines("{}{}.{}.ucas_valid_result.csv".format(output_path, args.do_model, id), submit)
+        # for r,data in zip(result,input_data):
+        #     sent,entity=data
+        #     for k,v in r.items():
+
 
 def testone():##按默认执行
     # get_data()
     args = parser.parse_args()
+    # get_submit_postprocess(args, id)
     np.random.seed(args.random_seed)
     random.seed(args.random_seed)
     args.do_model = 'mcls'
@@ -73,7 +99,7 @@ def findlr():
     args = parser.parse_args()
     np.random.seed(args.random_seed)
     random.seed(args.random_seed)
-    args.do_model = 'role'
+    args.do_model = 'mcls'
     schema_labels, predict_data, predict_sents = process_data(args)
 
     for lr in [1e-5,5e-5,3e-4,3e-6]:
@@ -84,35 +110,16 @@ def findlr():
         one(args, schema_labels, predict_data, predict_sents, str(id))
         id+=1
 
-def change_event_label():
-    id=29
-    args = parser.parse_args()
-    np.random.seed(args.random_seed)
-    random.seed(args.random_seed)
-    args.do_model = 'role'
-    # shiyan = """
-    # 增加一列：change_event
-    #     """
-    # write_title('./work/log/' + args.do_model + '.txt', args, shiyan)
-    for event_label in ['BIO_event','BIO','no']:
-        if(id<10):
-            id+=1
-            continue
-        if(event_label=='BIO_event'):
-            args.add_rule=True
-        else:
-            args.add_rule=False
-        args.change_event=event_label
-        schema_labels, predict_data, predict_sents = process_data(args)
-        args.checkpoint_dir = 'models/' + args.do_model + str(id)
-        one(args, schema_labels, predict_data, predict_sents, str(id))
-        get_submit_postprocess(args,id,check=True)
-        get_submit_postprocess(args, id, check=False)
-        id+=1
+
 if __name__ == "__main__":
     # findlr()
-    # id=17
-    # testone()
-    change_event_label()
+    id=1
+    testone()
+    # change_event_label()
+    # args = parser.parse_args()
+    # args.do_model='role'
+    # args.change_event = 'BIO'
+    # id=33
+    # get_submit_postprocess(args, id,mcls=True)
 
 

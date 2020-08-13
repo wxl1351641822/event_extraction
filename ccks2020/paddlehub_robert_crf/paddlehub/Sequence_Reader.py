@@ -23,14 +23,12 @@ class SequenceLabelReader(BaseNLPReader):
                  dataset=None,
                  label_map_config=None,
                  max_seq_len=512,
-                 max_events_len=5,
                  do_lower_case=True,
                  random_seed=None,
                  use_task_id=False,
                  sp_model_path=None,
                  word_dict_path=None,
                  in_tokens=False):
-        self.max_events_len=max_events_len
         super(SequenceLabelReader, self).__init__(
             vocab_path=vocab_path,
             dataset=dataset,
@@ -73,7 +71,7 @@ class SequenceLabelReader(BaseNLPReader):
             batch_label_ids = [record.label_id for record in batch_records]
             padded_label_ids = pad_batch_data(
                 batch_label_ids,
-                max_seq_len=self.max_seq_len*self.max_events_len,
+                max_seq_len=self.max_seq_len,
                 pad_idx=len(self.label_map) - 1)
 
             return_list = [
@@ -115,6 +113,7 @@ class SequenceLabelReader(BaseNLPReader):
             ret_labels = []
             for token, label in zip(tokens, labels):
                 sub_token = tokenizer.tokenize(token)
+                print(sub_token)
                 if len(sub_token) == 0:
                     continue
                 ret_tokens.extend(sub_token)
@@ -125,7 +124,7 @@ class SequenceLabelReader(BaseNLPReader):
                 if label.startswith("B-"):
                     sub_label = "I-" + label[2:]
                 ret_labels.extend([sub_label] * (len(sub_token) - 1))
-            # print(ret_tokens,ret_labels)
+
             if len(ret_tokens) != len(ret_labels):
                 raise ValueError(
                     "The length of ret_tokens can't match with labels")
@@ -148,38 +147,25 @@ class SequenceLabelReader(BaseNLPReader):
                                    tokenizer,
                                    phase=None):
 
-        tokens = tokenization.convert_to_unicode(example.text_a).split('\002')
-        # print(example)
+        tokens = tokenization.convert_to_unicode(example.text_a).split(u"")
+
         if phase != "predict":
-            labels = tokenization.convert_to_unicode(example.label).split('\002')
-            # print(labels,tokens,len(labels),len(tokens))
+            labels = tokenization.convert_to_unicode(example.label).split(u"")
             tokens, labels = self._reseg_token_label(
                 tokens=tokens, labels=labels, tokenizer=tokenizer, phase=phase)
 
             if len(tokens) > max_seq_length - 2:
                 tokens = tokens[0:(max_seq_length - 2)]
-                # ll=[]
-                # for i in range((len(labels)//len(tokens))):
-                #     ll.extend(labels[i*(max_seq_length-2):(i+1)*(max_seq_length-2)])
-                # labels=ll
-            no_entity_id = len(self.label_map) - 1
-            # print(self.label_map)
-            ll = []
-            print(tokens,labels,len(tokens),len(labels))
-            for i in range((len(labels) // len(tokens))):
-                ll.extend([no_entity_id
-                         ] +[self.label_map[label] for label in labels[i * (len(tokens)):(i + 1) * (len(tokens))]] +[no_entity_id
-                         ] )
-            label_ids = ll
-            # label_ids = [no_entity_id
-            #              ] + [self.label_map[label]
-            #                   for label in labels] + [no_entity_id]
+                labels = labels[0:(max_seq_length - 2)]
 
             tokens = ["[CLS]"] + tokens + ["[SEP]"]
             token_ids = tokenizer.convert_tokens_to_ids(tokens)
             position_ids = list(range(len(token_ids)))
             text_type_ids = [0] * len(token_ids)
-
+            no_entity_id = len(self.label_map) - 1
+            label_ids = [no_entity_id
+                         ] + [self.label_map[label]
+                              for label in labels] + [no_entity_id]
             record = self.Record_With_Label_Id(
                 token_ids=token_ids,
                 text_type_ids=text_type_ids,

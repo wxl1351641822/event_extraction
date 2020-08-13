@@ -19,6 +19,7 @@ import sys
 import six
 import json
 import argparse
+import collections
 import pandas as pd
 
 def read_by_lines(path, encoding="utf-8"):
@@ -32,6 +33,7 @@ def read_by_lines(path, encoding="utf-8"):
 
 def write_by_lines(path, data, t_code="utf-8"):
     """write the data"""
+    print(path,len(data))
     with open(path, "w",encoding='utf-8') as outfile:
         [outfile.write(d + "\n") for d in data]#.encode(t_code)
 
@@ -203,51 +205,367 @@ def write_title(path,args,shiyan):
     title,_=get_arguments(args)
     s=shiyan+'\nid,f1,'
     with open(path,'a') as f:
-        f.write(s+title+'\n')
+        f.write(s+title+',score,备注\n')
 
 def write_log(path,args,s):
     _,val=get_arguments(args)
     with open(path,'a') as f:
         f.write(s+','+val+'\n')
 
+def read_result(path):
+    result_dict = collections.defaultdict(list)
+    with open(path,'r',encoding='utf-8') as f:
+        result=f.readlines()
+        # result=[r.strip().split('\t') for r in result]
+        for r in result:
+            # print(r)
+            r=r.strip().split('\t')
+            result_dict[r[0]].append(r[1:])
+            # print(result_dict)
+    return result_dict
+
+def correct(orig,co):
+    orig=read_result(orig)
+    co=read_result(co)
+    orig_length=len(orig)
+    add=[]
+    for k,v in orig.items():
+        for i in range(len(v)):
+            if(i>=len(co[k])):
+                continue
+            if(v[i][1]!=co[k][i][1]):
+                flag=0
+                for j in range(len(co[k])):
+                    if(v[i][1]==co[k][j][1]):
+                        flag=1
+                if(flag==0):
+                    print(v,co[k])
+                    for ii in range(len(v)):
+                        for cov in co[k]:
+                            if(v[ii][1] in cov[1]):
+                                print(v[ii][1],cov[1])
+                                orig[k][ii][1]=cov[1]
+
+def get_submit_correct(mcls=False):#开始边界为三vote,结束边界为最后一个--13.15.16--0.764
+    output_predict_data_path='./work/test1_data/test1.json'
+    output_path='./work/test1_data'
+    orig_id=32
+    correct_id=33
+    correct2_id=34
+    orig = read_by_lines("{}.{}.{}.pred".format(output_predict_data_path, 'role', orig_id))
+    correct = read_by_lines("{}.{}.{}.pred".format(output_predict_data_path, 'role', correct_id))
+    correct2 = read_by_lines("{}.{}.{}.pred".format(output_predict_data_path, 'role', correct2_id))
+    submit = []
+    count = 0
+    for j in range(len(orig)):
+        json_orig = json.loads(orig[j])
+        json_correct=json.loads(correct[j])
+        json_correct2 = json.loads(correct2[j])
+        id=json_orig['id']
+        print(id)
+        # print(json_correct)
+        correct_labels=json_correct['labels']
+        correct2_labels=json_correct2['labels']
+        orig_labels=json_orig['labels']
+        text=json_orig['text']
+        label=''
+        entity_id=-1
+        for i in range(len(orig_labels)):
+            if(orig_labels[i]==correct_labels[i]=='O' and correct2_labels[i]=='<NA>'):
+                if(label!=''):
+                    if(mcls):
+                        submit.append('\t'.join([str(id),text,text[entity_id:i],label]))
+                    else:
+                        submit.append('\t'.join([str(id), label, text[entity_id:i]]))
+                    print(submit[-1])
+
+                label=''
+            else:
+                # print(i, label, text[i], orig_labels[i], json_correct['text'][i], correct_labels[i],
+                #       json_correct2['text'][i], correct2_labels[i])
+                if(label==''):
+                    #0.76->0.74，但可以加个规则？
+                    # if (orig_labels[i][0] == 'B'):
+                    #     entity_id=i
+                    #     label=orig_labels[i][2:]
+                    # elif(correct2_labels[i]!='<NA>'):
+                    #     entity_id=i
+                    #     label=correct2_labels[i]
+                    if(orig_labels[i][0]=='B'):
+                        if(correct_labels[i]=='B' or correct2_labels[i]!='<NA>'):
+                            entity_id=i
+                            label=orig_labels[i][2:]
+                    else:
+                        if(correct2_labels[i]!='<NA>' and correct_labels[i]=='B') :
+                            entity_id=i
+                            label=correct2_labels[i]
+
+            # if (id == 2781379):
+            #     print(i, label, text[i], orig_labels[i], json_correct['text'][i], correct_labels[i],
+            #           json_correct2['text'][i], correct2_labels[i])
+                    # if(label==''):
+                    #     print(i,label,text[i],orig_labels[i],json_correct['text'][i],correct_labels[i],json_correct2['text'][i],correct2_labels[i])
+    write_by_lines("{}/{}.{}.{}.ucas_valid_result.csv".format(output_path, orig_id,correct_id,correct2_id), submit)
+        # if(len(correct_label)!=len(text) or len(text)!=len(orig_label)):
+        #     print(len(text),len(orig_label),len(correct_label),len(json_correct['text']))
+    #     text = json_result['text']
+    #     label = json_result["labels"]
+    #     now_label = ''
+    #     now_entity = -1
+    #     count = 0
+    #     # print(len(text),len(label))
+    #     for i, l in enumerate(label):
+    #         # print(l,text[i])
+    #         if (l == 'O' or l=='<NA>'):
+    #             if (now_label != ''):
+    #                 count += 1
+    #                 if(check):
+    #                     submit.append('\t'.join([str(json_result['id']), now_label, text[now_entity:i],
+    #                                              str(json_result['input'][0][now_entity * 2:i * 2]),
+    #                                              str(json_result['input'][0]), text, str(label)]))
+    #                 else:
+    #                     submit.append('\t'.join([str(json_result['id']), now_label,  text[now_entity:i]]))
+    #                 now_label = ''
+    #         else:
+    #             if (l.startswith('B')):
+    #                 if(args.change_event =='BIO_event'):
+    #                     now_label = l[2:]
+    #                 else:
+    #                     now_label = l
+    #                 now_entity = i
+    #             elif (args.add_rule and now_label == ''):
+    #                 if(label[i][2:]==label[now_entity][2:]):
+    #                     now_label=label[i][2:]
+    #                     submit.pop(-1)
+    #     # if(count==0):
+    #     #     submit.append('\t'.join([str(json_result['id']),'','',text,str(label)]))
+    #     # print(submit)
+    # if(check):
+    #     write_by_lines("{}/{}ucas_valid_result_check.csv".format(output_path, id), submit)
+    # else:
+    #     write_by_lines("{}/{}ucas_valid_result.csv".format(output_path,id), submit)
+
+def get_classify_correct(mcls=False):#开始边界为三vote,结束边界为最后一个--13.15.16--0.764
+    output_predict_data_path='./work/test1_data/test1.json'
+    output_path='./work/test1_data'
+    orig_id=32
+    correct_id=33
+    correct2_id=34
+    orig = read_by_lines("{}.{}.{}.pred".format(output_predict_data_path, 'role', orig_id))
+    correct = read_by_lines("{}.{}.{}.pred".format(output_predict_data_path, 'role', correct_id))
+    correct2 = read_by_lines("{}.{}.{}.pred".format(output_predict_data_path, 'role', correct2_id))
+    submit = []
+    count = 0
+    for j in range(len(orig)):
+        json_orig = json.loads(orig[j])
+        json_correct=json.loads(correct[j])
+        json_correct2 = json.loads(correct2[j])
+        id=json_orig['id']
+        print(id)
+        # print(json_correct)
+        correct_labels=json_correct['labels']
+        correct2_labels=json_correct2['labels']
+        orig_labels=json_orig['labels']
+        text=json_orig['text']
+        label=''
+        entity_id=-1
+        for i in range(len(orig_labels)):
+            if(orig_labels[i]==correct_labels[i]=='O' and correct2_labels[i]=='<NA>'):
+                if(label!=''):
+                    if (mcls):
+                        submit.append('\t'.join([str(id), text, text[entity_id:i], label]))
+                    else:
+                        submit.append('\t'.join([str(id), label, text[entity_id:i]]))
+                label=''
+            else:
+                print(i, label, text[i], orig_labels[i], json_correct['text'][i], correct_labels[i],
+                      json_correct2['text'][i], correct2_labels[i])
+                if(label==''):
+                    #0.76->0.74，但可以加个规则？
+                    if (orig_labels[i][0] == 'B'):
+                        entity_id=i
+                        label=orig_labels[i][2:]
+                    elif(correct2_labels[i]!='<NA>'):
+                        entity_id=i
+                        label=correct2_labels[i]
+
+
+            # if (id == 2781379):
+            #     print(i, label, text[i], orig_labels[i], json_correct['text'][i], correct_labels[i],
+            #           json_correct2['text'][i], correct2_labels[i])
+                    # if(label==''):
+                    #     print(i,label,text[i],orig_labels[i],json_correct['text'][i],correct_labels[i],json_correct2['text'][i],correct2_labels[i])
+    write_by_lines("{}/{}.{}.{}.ucas_valid_result.csv".format(output_path, orig_id,correct_id,correct2_id), submit)
+        # if(len(correct_label)!=len(text) or len(text)!=len(orig_label)):
+        #     print(len(text),len(orig_label),len(correct_label),len(json_correct['text']))
+    #     text = json_result['text']
+    #     label = json_result["labels"]
+    #     now_label = ''
+    #     now_entity = -1
+    #     count = 0
+    #     # print(len(text),len(label))
+    #     for i, l in enumerate(label):
+    #         # print(l,text[i])
+    #         if (l == 'O' or l=='<NA>'):
+    #             if (now_label != ''):
+    #                 count += 1
+    #                 if(check):
+    #                     submit.append('\t'.join([str(json_result['id']), now_label, text[now_entity:i],
+    #                                              str(json_result['input'][0][now_entity * 2:i * 2]),
+    #                                              str(json_result['input'][0]), text, str(label)]))
+    #                 else:
+    #                     submit.append('\t'.join([str(json_result['id']), now_label,  text[now_entity:i]]))
+    #                 now_label = ''
+    #         else:
+    #             if (l.startswith('B')):
+    #                 if(args.change_event =='BIO_event'):
+    #                     now_label = l[2:]
+    #                 else:
+    #                     now_label = l
+    #                 now_entity = i
+    #             elif (args.add_rule and now_label == ''):
+    #                 if(label[i][2:]==label[now_entity][2:]):
+    #                     now_label=label[i][2:]
+    #                     submit.pop(-1)
+    #     # if(count==0):
+    #     #     submit.append('\t'.join([str(json_result['id']),'','',text,str(label)]))
+    #     # print(submit)
+    # if(check):
+    #     write_by_lines("{}/{}ucas_valid_result_check.csv".format(output_path, id), submit)
+    # else:
+    #     write_by_lines("{}/{}ucas_valid_result.csv".format(output_path,id), submit)
+
+def read_label_dict(path):
+    with open(path, 'r', encoding='utf-8') as f:
+        dic = f.read()
+        # print(dic)
+        dic = eval(dic)
+    return dic
+def read_label(path):
+    dic=read_label_dict(path)
+    return list(dic.keys())
+def regrex_data(x):##去除空格啥的
+    x=x.replace(' ','')
+    x=x.replace(' ','')
+    x=x.replace(' ','')
+    x=x.replace('　','')
+    x=x.replace('­','')
+    x=x.replace('\xa0','')
+    x=x.replace('\xad','')
+    x=x.replace('\u3000','')
+    x=x.replace('\u200b','')
+    x=x.replace('</p>','')
+    x=x.replace('<p>','')
+    x = x.replace('<br>', '')
+    x = x.replace('\uee0a', '')
+    x = x.replace('\uec5e', '')
+    x = x.replace('\uf06c', '')
+    x = x.replace('\ued3c', '')
+    x = x.replace('\ued22', '')
+    x = x.replace('\x81', '')
+    return x
+
+def get_data():
+    datapath='./work/all_with_neg.csv'
+    c = pd.read_csv(datapath, header=None, sep='\t').fillna('').sort_values(by=0)
+    label_dict=read_label_dict('./work/event2id.txt')
+    labellist=list(label_dict.keys())[1:]
+    s = ['text_a\tentity\t' + '\t'.join(labellist)]
+    count = 0
+    # print(c.head(3))
+    oldid = 0
+    data_dict={}
+    multi_label_count=0
+    for id, sent, label, entity in c.values:
+        # if(id==oldid):
+        #     print(id,label,entity,oldid)
+        if(sent in data_dict.keys()):
+            # print(id,data_dict[id])
+            if(entity not in data_dict[sent].keys()):
+                data_dict[sent][entity]=[0]*len(labellist)
+                if (label != ''):
+                    data_dict[sent][entity][label_dict[label]-1]=1
+            else:
+                if (label != ''):
+                    data_dict[sent][entity][label_dict[label]-1]=1
+                    multi_label_count+=1
+        else:
+            # oldid=id
+            data_dict[sent]={entity:[0]*len(labellist)}
+            if(label!=''):
+                data_dict[sent][entity][label_dict[label]-1] = 1
+        # print(data_dict)
+
+    sents=[]
+    entities=[]
+    labels=[]
+    multi_entity_count=0
+    for sent,v in data_dict.items():
+
+        flag=0
+        for entity,label in v.items():
+            flag+=1
+            sent=regrex_data(sent)
+            sents.append(sent)
+            entities.append(entity)
+            labels.append(label)
+        if(flag>1):
+            multi_entity_count+=1
+
+    result = pd.DataFrame()
+    # result['id']=idd
+    result['sent']=sents
+    result['entity']=entities
+    result['label']=labels
+    result=result.sample(frac=1.0)
+    result.to_csv('./work/data_cls.csv', header=None, index=False,sep='\t')
+    print(result)
+    print(multi_entity_count/41600.0,multi_entity_count)
+    print(multi_label_count / 41600.0, multi_label_count)
 
 
 if __name__ == "__main__":
-
-    parser = argparse.ArgumentParser(
-        description="Official evaluation script for DuEE version 0.1.")
-    parser.add_argument(
-        "--trigger_file",
-        help="trigger model predict data path",
-        default='./work/test1_data/')
-    parser.add_argument(
-        "--role_file", help="role model predict data path", default='./work/test1_data/')
-    parser.add_argument(
-        "--schema_file", help="schema file path", default='work/event_schema/event_schema.json')
-    parser.add_argument("--save_path", help="save file path", default='work/mix_predict/')
-    args = parser.parse_args()
-    trigger=pd.read_csv('./work/log/trigger.txt')
-    role=pd.read_csv('./work/log/role.txt')
-    pred_log=[]#'id,trigger_id,role_id,trigger_f1,role_f1,save_path']
-    id=1
-    for trigger_id,trigger_f1 in trigger[['id','f1']].values:
-        for role_id,role_f1 in role[['id','f1']].values:
-            if(id<103):
-                id+=1
-                continue
-            ll = [id, int(trigger_id), trigger_f1, int(role_id), role_f1]
-            ll=[str(x) for x in ll]
-            print(ll)
-            trigger_path=args.trigger_file+'test1.json.%s.0%s.pred'%('trigger',ll[1])
-            role_path =args.role_file+ 'test1.json.%s.0%s.pred' % ('role', ll[3])
-            save_path=args.save_path+'%s.trigger0%s.role0%s.json'%(ll[0],ll[1],ll[3])
-            predict_data_process(trigger_path, role_path, args.schema_file,
-                                 save_path)
-
-            ll+=[save_path]
-            pred_log.append(','.join(ll))
-            id+=1
-    with open('./work/log.txt','a',encoding='utf-8') as f:
-        f.write('\n'.join(pred_log))
+    # get_data()
+    # get_submit_correct(True)
+    get_classify_correct(True)
+    # data_path='./work/test1_data/'
+    # orig=data_path+'13_1ucas_valid_result.csv'
+    # co=data_path+'15ucas_valid_result.csv'
+    # correct(orig, co)
+    # parser = argparse.ArgumentParser(
+    #     description="Official evaluation script for DuEE version 0.1.")
+    # parser.add_argument(
+    #     "--trigger_file",
+    #     help="trigger model predict data path",
+    #     default='./work/test1_data/')
+    # parser.add_argument(
+    #     "--role_file", help="role model predict data path", default='./work/test1_data/')
+    # parser.add_argument(
+    #     "--schema_file", help="schema file path", default='work/event_schema/event_schema.json')
+    # parser.add_argument("--save_path", help="save file path", default='work/mix_predict/')
+    # args = parser.parse_args()
+    # trigger=pd.read_csv('./work/log/trigger.txt')
+    # role=pd.read_csv('./work/log/role.txt')
+    # pred_log=[]#'id,trigger_id,role_id,trigger_f1,role_f1,save_path']
+    # id=1
+    # for trigger_id,trigger_f1 in trigger[['id','f1']].values:
+    #     for role_id,role_f1 in role[['id','f1']].values:
+    #         if(id<103):
+    #             id+=1
+    #             continue
+    #         ll = [id, int(trigger_id), trigger_f1, int(role_id), role_f1]
+    #         ll=[str(x) for x in ll]
+    #         print(ll)
+    #         trigger_path=args.trigger_file+'test1.json.%s.0%s.pred'%('trigger',ll[1])
+    #         role_path =args.role_file+ 'test1.json.%s.0%s.pred' % ('role', ll[3])
+    #         save_path=args.save_path+'%s.trigger0%s.role0%s.json'%(ll[0],ll[1],ll[3])
+    #         predict_data_process(trigger_path, role_path, args.schema_file,
+    #                              save_path)
+    #
+    #         ll+=[save_path]
+    #         pred_log.append(','.join(ll))
+    #         id+=1
+    # with open('./work/log.txt','a',encoding='utf-8') as f:
+    #     f.write('\n'.join(pred_log))
 
 
