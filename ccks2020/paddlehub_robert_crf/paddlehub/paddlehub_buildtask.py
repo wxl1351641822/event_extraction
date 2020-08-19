@@ -15,7 +15,7 @@ from paddlehub.dataset import InputExample
 from datetime import datetime
 # from paddlehub.dataset.base_nlp_dataset import MultiLabelDataset
 # from Sequence_Reader import SequenceLabelReader
-# from sequence_task import SequenceLabelTask
+# from sequence_task import MySequenceLabelTask
 from paddlehub import MultiLabelClassifierTask
 from paddlehub.reader import MultiLabelClassifyReader
 from paddlehub import SequenceLabelTask
@@ -172,7 +172,7 @@ def get_predict(args):
 
 
 # yapf: enable.
-def process_data(args,i=0):
+def process_data(args,i=4):
     if args.do_model=='mcls':
         train1,dev1=get_mcls_train_dev(args,i)
         predict_data, predict_sents = get_mcls_predict(args)
@@ -329,8 +329,9 @@ def get_task(args, schema_labels, id):
     inputs, outputs, program = module.context(
         trainable=True, max_seq_len=args.max_seq_len)
     # if args.model=='mcls':
-    tokenizer = hub.BertTokenizer(vocab_file=module.get_vocab_path())  # 加载数据并通过SequenceLabelReader读取数据
     if(args.do_model=='mcls'):
+        tokenizer = hub.BertTokenizer(vocab_file=module.get_vocab_path())  # 加载数据并通过SequenceLabelReader读取数据
+
         dataset = CCksDataset(args.data_dir, schema_labels, model=args.do_model,tokenizer=tokenizer,max_seq_len=args.max_seq_len)
         reader = MultiLabelClassifyReader(
             dataset=dataset,
@@ -404,7 +405,8 @@ def get_task(args, schema_labels, id):
             max_seq_len=args.max_seq_len,
             num_classes=dataset.num_labels,
             config=config,
-            add_crf=args.add_crf)
+            add_crf=args.add_crf
+        )
     task.main_program.random_seed = args.random_seed
     add_hook(args, task, id)
     return task, reader
@@ -487,8 +489,11 @@ def get_submit_postprocess(args,id,check=False,mcls=False):
                         submit.append('\t'.join([str(json_result['id']), now_label,  text[now_entity:i]]))
                     now_label = ''
             else:
-                print(l,text[i])
-                if (l.startswith('B')):
+                # print(l,text[i])
+                if(now_label=='' and l!='<NA>'):
+                    now_label=l
+                    now_entity = i
+                elif (l.startswith('B')):
                     if(args.change_event =='BIO_event'):
                         now_label = l[2:]
                     else:
@@ -507,4 +512,3 @@ def get_submit_postprocess(args,id,check=False,mcls=False):
         write_by_lines("{}/{}ucas_valid_result_check.csv".format(output_path, id), submit)
     else:
         write_by_lines("{}/{}ucas_valid_result.csv".format(output_path,id), submit)
-

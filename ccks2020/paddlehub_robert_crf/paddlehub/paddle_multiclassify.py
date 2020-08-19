@@ -79,20 +79,38 @@ def one(args, schema_labels, predict_data, predict_sents, id):
         #     for k,v in r.items():
 
 
-def testone():##按默认执行
+def testone(id=2):##按默认执行
     # get_data()
     args = parser.parse_args()
     # get_submit_postprocess(args, id)
     np.random.seed(args.random_seed)
     random.seed(args.random_seed)
     args.do_model = 'mcls'
-    schema_labels, predict_data, predict_sents = process_data(args)
     shiyan = """
     mcls
         """
     write_title('./work/log/' + args.do_model + '.txt', args, shiyan)
-    args.checkpoint_dir = 'models/' + args.do_model + str(id)
-    one(args, schema_labels, predict_data, predict_sents, str(id))
+    if(args.use_cross_validation):
+        id=cross_validation(args, id)
+    else:
+        schema_labels, predict_data, predict_sents = process_data(args, 4)
+        args.checkpoint_dir = 'models/' + args.do_model + str(id)
+        one(args, schema_labels, predict_data, predict_sents, str(id))
+
+
+def cross_validation(args,id):
+    begid=id
+    for i in range(args.cross_validation_num):
+        if (id < 40):
+            id += 1
+            continue
+        schema_labels, predict_data, predict_sents = process_data(args, i)
+        args.checkpoint_dir = 'models/' + args.do_model + str(id)
+        one(args, schema_labels, predict_data, predict_sents, str(id))
+        id += 1
+    # get_submit_cross_validation_vote(cross_validation_num=args.cross_validation_num, begid=begid,
+    #                                  type=args.change_event)
+    return id
 
 def findlr():
     id=9
@@ -113,8 +131,8 @@ def findlr():
 
 if __name__ == "__main__":
     # findlr()
-    id=1
-    testone()
+    id=2
+    testone(id)
     # change_event_label()
     # args = parser.parse_args()
     # args.do_model='role'

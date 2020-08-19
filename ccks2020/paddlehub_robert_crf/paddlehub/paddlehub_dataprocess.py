@@ -21,6 +21,7 @@ import json
 import argparse
 import collections
 import pandas as pd
+from collections import Counter
 
 def read_by_lines(path, encoding="utf-8"):
     """read the data by line"""
@@ -348,9 +349,9 @@ def get_submit_correct(mcls=False):#开始边界为三vote,结束边界为最后
 def get_classify_correct(mcls=False):#开始边界为三vote,结束边界为最后一个--13.15.16--0.764
     output_predict_data_path='./work/test1_data/test1.json'
     output_path='./work/test1_data'
-    orig_id=32
-    correct_id=33
-    correct2_id=34
+    orig_id='40-44'
+    correct_id='45-49'
+    correct2_id='50-54'
     orig = read_by_lines("{}.{}.{}.pred".format(output_predict_data_path, 'role', orig_id))
     correct = read_by_lines("{}.{}.{}.pred".format(output_predict_data_path, 'role', correct_id))
     correct2 = read_by_lines("{}.{}.{}.pred".format(output_predict_data_path, 'role', correct2_id))
@@ -434,6 +435,57 @@ def get_classify_correct(mcls=False):#开始边界为三vote,结束边界为最�
     #     write_by_lines("{}/{}ucas_valid_result_check.csv".format(output_path, id), submit)
     # else:
     #     write_by_lines("{}/{}ucas_valid_result.csv".format(output_path,id), submit)
+
+def get_submit_cross_validation_vote(cross_validation_num=5,begid=40,type='BIO_event'):#开始边界为三vote,结束边界为最后一个--13.15.16--0.764
+    output_predict_data_path='./work/test1_data/test1.json'
+    output_path='./work/test1_data'
+    datalist=[]
+    for id in range(begid,begid+cross_validation_num):
+        datalist.append(read_by_lines("{}.{}.{}.pred".format(output_predict_data_path, 'role', id)))
+
+    submit = []
+    ret=[]
+    for j in range(len(datalist[0])):
+        json_data=[]
+        labellist=[]
+        for d in datalist:
+            json_data.append(json.loads(d[j]))
+            labellist.append(json_data[-1]['labels'])
+        id=json_data[0]['id']
+        text=json_data[0]['text']
+        # print(id,labellist)
+        now_entity=0
+        now_label=''
+        now_label_list=[]
+        for label_index in range(len(labellist[0])):
+            count=0
+            O_flag=-1
+            result_label=[]
+            for index,label in enumerate(labellist):
+                result_label.append(label[label_index])
+            result_label=Counter(result_label).most_common(1)[0][0]
+            now_label_list.append(result_label)
+            if(result_label in ['O','<NA>']):
+                if(now_label!=''):
+                    submit.append('\t'.join([str(id),now_label,text[now_entity:label_index]]))
+                    now_label=''
+            else:
+                if(now_label==''):
+                    if(result_label[0]=='B'):
+                        if(type=='BIO_event'):
+                            now_label=result_label[2:]
+                        elif(type=='BIO'):
+                            now_label=result_label
+                        now_entity=label_index
+                    elif(type=='no'):
+                        now_label=result_label
+                        now_entity = label_index
+        sent = {'id': id, 'text': text, 'labels':now_label_list}
+        ret.append(json.dumps(sent, ensure_ascii=False))
+    write_by_lines(
+        "{}/test1.json.role.{}-{}.pred".format(output_path, begid, begid + cross_validation_num - 1), ret)
+
+    write_by_lines("{}/{}-{}cross.ucas_valid_result.csv".format(output_path,begid,begid+cross_validation_num-1 ), submit)
 
 def read_label_dict(path):
     with open(path, 'r', encoding='utf-8') as f:
@@ -525,9 +577,11 @@ def get_data():
 
 
 if __name__ == "__main__":
+    get_classify_correct(True)
+    # get_submit_cross_validation_vote(cross_validation_num=5, begid=40,type='BIO_event')
     # get_data()
     # get_submit_correct(True)
-    get_classify_correct(True)
+    # get_classify_correct(True)
     # data_path='./work/test1_data/'
     # orig=data_path+'13_1ucas_valid_result.csv'
     # co=data_path+'15ucas_valid_result.csv'
