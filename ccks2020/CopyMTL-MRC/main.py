@@ -86,6 +86,7 @@ class Evaluator(object):
     def rel_test(self,seq2seq) -> Tuple[Tuple[float, float, float]]:
         predicts = []
         gold = []
+        loss=0.0
         data = prepare.load_data(self.mode)
         if mode == 'test':
             data = prepare.test_process(data)
@@ -100,11 +101,34 @@ class Evaluator(object):
 
             predicts.extend(pred_action_list)
             gold.extend(batch_data.all_triples)
+            mean_loss=0.0
+            if self.config.losstype == 1:
+                ##1.原来###################################
+                for t in range(seq2seq.decoder.decodelen):
+                    # print(pred_logits_list[t])
+                    mean_loss = mean_loss + F.nll_loss(pred_logits_list[t],
+                                             torch.from_numpy(batch_data.standard_outputs).to(self.device).to(
+                                                 torch.long)[:, t])
+                    # print(pred_logits_list[t],
+                    #                          torch.from_numpy(batch_data.standard_outputs).to(self.device).to(
+                    #                              torch.long)[:, t])
+                    # print(torch.from_numpy(batch_data.standard_outputs).to(self.device).to(
+                    #                              torch.long)[:, t],pred_logits_list[t].shape,F.nll_loss(pred_logits_list[t],
+                    #                          torch.from_numpy(batch_data.standard_outputs).to(self.device).to(
+                    #                              torch.long)[:, t]),loss)
+            mean_loss/=pred_logits_list[0].shape[0]
+            if(batch_i<1000):
+                loss+=mean_loss
+
+
+
+
+        loss /= 1000
         f1, precision, recall = evaluation.compare(predicts, gold, self.config, show_rate=None, simple=True)
         (r_f1, r_precision, r_recall), (e_f1, e_precision, e_recall) = evaluation.rel_entity_compare(predicts, gold,
                                                                                                      self.config)
 
-        return (f1, precision, recall),(r_f1, r_precision, r_recall), (e_f1, e_precision, e_recall)
+        return loss.item(),(f1, precision, recall),(r_f1, r_precision, r_recall), (e_f1, e_precision, e_recall)
 
     def event_test(self, seq2seq) -> Tuple[Tuple[float, float, float]]:
         predicts = []
@@ -261,31 +285,6 @@ class SupervisedTrainer(object):
                 # print(pred_logits_list[t])
                 loss = loss + self.loss(pred_logits_list[t], all_events[:, t])
                 # break
-        elif self.config.losstype == 2:
-            ##2.loss2,排列组合###################################
-            loss = 0.
-            # print(pred_logits_list)
-            # print(pred_action_list)
-            for i in range(all_events.shape[0]):
-                # print(all_triples[i])
-                now_loss = 0.
-                triple_num = min(len(all_triples[i]) // (lengths[i] + 1), self.config.triple_number)
-                # print(pred_action_list[:self.max_sentence_length*triple_num,i].shape)
-                # pred_logits_list_event[:1+triple_num,i]
-                # print(pred_logits_list_entity[:self.max_sentence_length*triple_num,i].shape)
-                for j in range(triple_num):
-                    glob = all_events[i, j * (self.max_sentence_length + 1):(j + 1) * (self.max_sentence_length + 1)]
-                    # print(glob.shape)
-                    for k in range(triple_num):
-                        # print(pred_logits_list_entity[k*(self.max_sentence_length+1):(k+1)*(self.max_sentence_length+1),i].shape)
-                        now_loss += self.loss(pred_logits_list[k * (self.max_sentence_length + 1):(k + 1) * (
-                                    self.max_sentence_length + 1), i], glob)
-                if triple_num!=0:
-                    now_loss /= (triple_num * triple_num)
-                # print(pred_logits_list[triple_num*(self.max_sentence_length+1)+1,i],all_events[i,triple_num*(self.max_sentence_length+1)+1])
-                loss += now_loss + self.loss(pred_logits_list[triple_num * (self.max_sentence_length + 1):triple_num * (
-                            self.max_sentence_length + 1) + 1, i], all_events[i, triple_num * (
-                            self.max_sentence_length + 1):triple_num * (self.max_sentence_length + 1) + 1])
         (r_f1, r_precision, r_recall), (e_f1, e_precision, e_recall) = evaluation.rel_entity_compare(pred_action_list, batch.all_triples,
                                                                                                      self.config)
         f1, precision, recall = evaluation.compare(pred_action_list, batch.all_triples,self.config, show_rate=None, simple=True)
@@ -322,7 +321,7 @@ class SupervisedTrainer(object):
                 train_ef1 += e_f1
                 train_eprecision += e_precision
                 train_erecall += e_recall
-                if (step % 10 == 0):
+                if (step % 10 == 0):#train log
                     if (step != 0):
                         train_loss /= 10.
                         train_rf1 /= 10.
@@ -345,7 +344,7 @@ class SupervisedTrainer(object):
                     train_rf1, train_rprecision, train_rrecall = 0., 0., 0.
                     train_ef1, train_eprecision, train_erecall = 0., 0., 0.
 
-                if (step % 200 == 0):
+                if (step % 200 == 0):#eval log
 
                     model_path = os.path.join('saved_model',
                                               self.config.dataset_name + '_' + self.config.cell_name + '_' + decoder_type + str(
@@ -355,29 +354,125 @@ class SupervisedTrainer(object):
                     if evaluator:
                         with torch.no_grad():
 
-                            (f1, precision, recall), (r_f1, r_precision, r_recall), (e_f1, e_precision, e_recall)=evaluator.rel_test(self.seq2seq)
+                            dev_loss,(f1, precision, recall), (r_f1, r_precision, r_recall), (e_f1, e_precision, e_recall)=evaluator.rel_test(self.seq2seq)
                             print('_' * 60)
-                            print("epoch %d\t step %d \t F1: %f \t P: %f \t R: %f \t" %(
-                                epoch, step,f1, precision, recall))
+                            print("epoch %d\t step %d \t dev_loss: %f \t F1: %f \t P: %f \t R: %f \t" %(
+                                epoch, step,dev_loss,f1, precision, recall))
                             print("event_mrc \t F1: %f \t P: %f \t R: %f \t" % (r_f1, r_precision, r_recall))
                             print("entity \t F1: %f \t P: %f \t R: %f \t" % (e_f1, e_precision, e_recall))
                             print('_' * 60)
 
-                            ll = [epoch, step,f1, precision, recall, r_f1, r_precision, r_recall, e_f1, e_precision, e_recall]
+                            ll = [epoch, step,dev_loss,f1, precision, recall, r_f1, r_precision, r_recall, e_f1, e_precision, e_recall]
                             ll = [str(x) for x in ll]
-                            with open(
-                                    './log/dev' + self.config.dataset_name + '_' + self.config.cell_name + '_' + decoder_type + str(
+                            with open('./log/dev' + self.config.dataset_name + '_' + self.config.cell_name + '_' + decoder_type + str(
                                             id) + '.txt', 'a', encoding='utf-8') as f:
                                 f.write('\t'.join(ll) + '\n')
                             train_loss = 0.0
+def read_dic(path):
+    with open(path,'r',encoding='utf-8') as f:
+        dic=f.read()
+        # print(dic)
+        dic=eval(dic)
+    return dic
+########改成阅理解的train/dev####################################
+def normal(s):
+    s = s.lower()
+    s = s.replace('(', ' ')
+    s = s.replace('（', ' ')
+    s = s.replace(')', ' ')
+    s = s.replace('）', ' ')
+    # s=s.replace(' ','')
+    # s=s.replace(' ','')
+    return s
+def get_train_dev(path,max_seq_len=80):
+    import pandas as pd
+    ###############################################################################
+    #           限制最长长度后，将label转为[event1,entity1_beg,entity2_beg]的三元组序列
+    ###############################################################################
+    c = pd.read_csv(path+'data.csv', header=None, sep='\t')
+    event2id = read_dic(path+'event2id.txt')
+    word2id=read_dic(path+'word2id.txt')
+    spl = int(c.shape[0] * 0.8)
+    train = c[:spl]
+    dev = c[spl:]
 
+    def get_data2id(c_data, path):
+        sent_length = []
+        entity_list = []
+        # s = ['text_a\tlabel']
+        count={}
+        all_label=[]
+        all_sent=[]
+        for sent, dic in c_data[[1, 2]].values:
+            # print(sent,dic)
+            sent=sent[:max_seq_len]
+            sentence = list(sent[:max_seq_len])
+            # print(sentence)
+            sentence=[word2id[s] if s in word2id.keys() else word2id['[UNK]'] for s in sentence]
+            sent = normal(sent)
+            sent_length.append(len(sentence))
+            dic = eval(dic)
+            label = []
+            for k, v in dic.items():
+                # print(k,v)
+                # print(entity2id)
+                for entity in v:
+                    entity_list.append(entity)
+                    entity = normal(entity)
+                    beg = sent.find(entity)
+                    end = sent.find(entity) + len(entity)
+                    if (beg == -1):
+                        # entity.strip()
+                        for i in range(5):
+                            sent = sent.replace(' ', '', i)
+                            beg = sent.find(entity)
+                            if (beg != -1):
+                                end = beg + len(entity) + i
+                                break
+                        for i in range(5):
+                            sent = sent.replace(' ', '', i)
+                            if (sent.find(entity) != -1):
+                                beg = sent.find(entity)
+                                end = beg + len(entity) + i
+                                break
+                        # print(beg,end)
+                        # if(beg==-1):
+                        #     print(entity)
+                        #     print(sent)
+                    if (beg != -1):
+                        label.extend([event2id[k], beg, end])
+                        break
+                        # entity_label[beg] = 'B-'+k
+                        # for i in range(beg + 1, end):
+                        #     entity_label[i] = 'I-'+k
+                        # print(entity,sentence[i])
+                        # print(entity_label)
+            all_label.append(label)
+            all_sent.append(sentence)
+            if(len(label)//3 in count.keys()):
+                count[len(label)//3]+=1
+            else:
+                count[len(label) // 3]=1
 
+        with open(path, 'w', encoding='utf-8') as f:
+            f.write(str([all_sent,all_label]))
+        return list(set(entity_list)),count
 
+    train1,train_count = get_data2id(train,path+'train.txt')
+    dev1,dev_count = get_data2id(dev, path+'dev.txt')
+    count = 0.
+    for e in dev1:
+        if e in train1:
+            count += 1.
+    print(count / len(train1), count / len(dev1), len(train1), len(dev1), count)
+    print(train_count)
+    print(dev_count)
 if __name__ == '__main__':
 
     config_filename = './config.json'
     config = const.Config(config_filename=config_filename, cell_name=cell_name, decoder_type=decoder_type)
     config.name = mode
+    get_train_dev(config.data_home,max_seq_len=config.max_sentence_length)
     assert cell_name in ['lstm', 'gru']
     assert decoder_type in ['one', 'multi','onecrf']
     # config.dataset_name = const.DataSet.WEBNLG

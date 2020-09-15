@@ -56,7 +56,7 @@ def one(args, schema_labels, predict_data, predict_sents, id):
         get_submit_postprocess(args, id)
         get_submit_postprocess(args, id, check=True)
 
-    if args.do_model in ['mcls','mcls_onlysentence']  and args.do_predict:
+    if args.do_model in ['mcls',"mcls_onlysentence"] and args.do_predict:
         input_data = predict_data
         result=seq_label_task.predict(data=input_data, return_result=True)
         ret = []
@@ -65,12 +65,15 @@ def one(args, schema_labels, predict_data, predict_sents, id):
             s['labels'] = []
             # print(r)
             for r0 in r:
-                print(r0)
+                # print(r0)
                 for k,v in r0.items():
-                    print(k,v)
+                    # print(k,v)
                     if(v==1):
                         s['labels'].append(k)
-                        submit.append('\t'.join([str(s["id"]),k,s["entity"]]))
+                        if(args.do_model=='mcls_onlysentence'):
+                            submit.append('\t'.join([str(s["id"]),k]))
+                        else:
+                            submit.append('\t'.join([str(s["id"]),k,s["entity"]]))
             ret.append(json.dumps(s,ensure_ascii=False))
         write_by_lines("{}.{}.{}.40-55.pred".format(output_predict_data_path, args.do_model, id), ret)
         write_by_lines("{}{}.{}.40-55.ucas_valid_result.csv".format(output_path, args.do_model, id), submit)

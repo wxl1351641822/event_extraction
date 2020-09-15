@@ -134,14 +134,15 @@ class Config:
 
         if DataSet.name == DataSet.CCKSMRC:
             self.entity_length=cfg["entity_length"]
-            self.words_number = 5566
-            self.embedding_dim = 100
+            self.words_number = 21127
+            self.embedding_dim = 768
             self.relation_number = 29
             self.event_number=self.relation_number
 
             self.max_sentence_length = 80
             # self.entity_size=3
             self.event_length=3#event_mrc,entity_beg,entity_end
+            self.data_home=data_home+'/'
             # data_home = os.path.join(home, 'data', 'event_mrc')
             self.words2id_filename = os.path.join(data_home, 'word2id.txt')
             # self.relations2id_filename = os.path.join(data_home, 'event2id.txt')

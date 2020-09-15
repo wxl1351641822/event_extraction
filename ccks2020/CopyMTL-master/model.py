@@ -117,7 +117,9 @@ class Decoder(nn.Module):
 
         out = torch.cat((output.unsqueeze(1).expand_as(encoder_outputs), encoder_outputs), dim=2)
         out = F.selu(self.fuse(F.selu(out)))
+        # print(out.shape)
         out = self.do_copy_linear(out).squeeze(2)
+        # print(out.shape)
         # out = (self.do_copy_linear(out).squeeze(2))
         return out
 
@@ -270,7 +272,7 @@ class OneDecoder(Decoder):
             -> Tuple[List[torch.Tensor], List[torch.Tensor]]:
 
         # sos = go = 0
-        print(sentence.shape[0])
+
         pred_action_list = []
         pred_logits_list = []
 
@@ -384,7 +386,7 @@ class CCKSDecoder(nn.Module):
         out = F.selu(self.fuse(F.selu(out)))  # [batch_size,maxlen,100]
 
         out = self.do_copy_linear(out).squeeze(2)#[batch_size,maxlen,entity_size]
-        # print(out.shape)
+        print(out.shape)
         # out = (self.do_copy_linear(out).squeeze(2))
         return out
 
@@ -550,6 +552,7 @@ class OneCCKSDecoder(CCKSDecoder):
         for t in range(self.decodelen):
 
             bag, decoder_state = self._decode_step(self.rnn, output, decoder_state, encoder_outputs)
+            # print(output.shape,decoder_state[0].shape,encoder_outputs.shape)
             predict_logits, copy_logits,predict_entity_tag_logits = bag
 
             if t % self.eventlen == 0:
@@ -600,8 +603,7 @@ class Seq2seq(nn.Module):
                 self.decoder = OneCCKSDecoder(config, embedding=self.word_embedding, device=device)
             elif config.decoder_type == 'multi':
                 self.decoder = MultiCCKSDecoder(config, embedding=self.word_embedding, device=device)
-            elif config.decoder_type == 'onecrf':
-                self.decoder = OneCrfCCKSDecoder(config, embedding=self.word_embedding, device=device)
+
             else:
                 raise ValueError('decoder type one/multi!!')
         else:
@@ -636,6 +638,7 @@ class Seq2seq(nn.Module):
             -> Tuple[torch.Tensor, torch.Tensor]:
 
         o, h = self.encoder(sentence, lengths)
+
         pred_action_list, pred_logits_list = self.decoder(sentence=sentence_eos.to(torch.long), decoder_state=h,
                                                           encoder_outputs=o)
 

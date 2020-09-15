@@ -56,11 +56,13 @@ class BiLSTM_CRF(nn.Module):
         forward_var_list.append(init_alphas)
         for feat_index in range(feats.shape[0]):
             gamar_r_l = torch.stack([forward_var_list[feat_index]] * feats.shape[1])#[5]-->[5,5]
-
+            print('gamma',gamar_r_l)
             t_r1_k = torch.unsqueeze(feats[feat_index],0).transpose(0,1)#[1,5]-->[5,1]
-
+            print('t_r1_k',t_r1_k)
             aa = gamar_r_l + t_r1_k + self.transitions#[5,5]
+            print('')
             forward_var_list.append(torch.logsumexp(aa,dim=1))
+            print('for')
         terminal_var = forward_var_list[-1] + self.transitions[self.tag_to_ix[STOP_TAG]]#[5]
 
         terminal_var = torch.unsqueeze(terminal_var,0)
@@ -98,7 +100,7 @@ class BiLSTM_CRF(nn.Module):
         forward_var_list.append(init_vvars)
 
         for feat_index in range(feats.shape[0]):
-            gamar_r_l = torch.stack([forward_var_list[feat_index]] * feats.shape[1])#[1,5]->[5,1,5]
+            gamar_r_l = torch.stack([forward_var_list[feat_index]] * feats.shape[1])  # [1,5]->[5,1,5]
 
             gamar_r_l = torch.squeeze(gamar_r_l)#[5,5]
             # print(gamar_r_l.shape)

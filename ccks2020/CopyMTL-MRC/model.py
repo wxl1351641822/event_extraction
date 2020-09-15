@@ -465,8 +465,8 @@ class MultiCCKSDecoder(CCKSDecoder):
 
         # sos = go = 0
 
-        pred_action_list = []
-        pred_logits_list = []
+        pred_action_list = torch.zeros(self.decodelen, self.batch_size).to(self.device)
+        pred_logits_list = torch.zeros(self.decodelen, self.batch_size, self.event_number + 1).to(self.device)
 
         go = torch.zeros(sentence.size()[0], dtype=torch.int64).to(self.device)
         output = self.sos_embedding(go)
@@ -494,12 +494,14 @@ class MultiCCKSDecoder(CCKSDecoder):
 
                 if t % self.eventlen == 0:
                     action_logits = predict_logits
+                    pred_logits_list[t] = action_logits
                 else:
-                    action_logits = predict_entity_tag_logits  # copy_logits
+                    action_logits = copy_logits
+                    pred_logits_list[t, :, :self.entity_size] = action_logits
 
                 max_action = torch.argmax(action_logits, dim=1).detach()
 
-                pred_action_list.append(max_action)
+                pred_action_list[t]=max_action
                 pred_logits_list.append(action_logits)
 
                 # next time step
@@ -556,8 +558,8 @@ class OneCCKSDecoder(CCKSDecoder):
                 action_logits = predict_logits
                 pred_logits_list[t]=action_logits
             else:
-                action_logits = predict_entity_tag_logits#copy_logits
-                # print(action_logits.shape)
+                action_logits = copy_logits
+                print(action_logits.shape)
                 pred_logits_list[t,:,:self.entity_size]=action_logits
 
             max_action = torch.argmax(action_logits, dim=1).detach()
@@ -572,7 +574,10 @@ class OneCCKSDecoder(CCKSDecoder):
 
             else:
                 output = max_action
-                output=self.entity_embedding(output)
+                # copy_index = torch.zeros_like(sentence).scatter_(1, max_action.unsqueeze(1), 1).to(torch_bool)
+                # output = sentence[copy_index]
+                # output = self.word_embedding(output)
+                # output=self.word_embedding(output)
 
         return pred_action_list,pred_logits_list
 
@@ -590,25 +595,25 @@ class Seq2seq(nn.Module):
         self.maxlen = config.max_sentence_length
 
         self.word_embedding = nn.Embedding(self.words_number + 1, self.emb_size)
-        # if load_emb:
-        #     self.load_pretrain_emb(config)
-        # self.word_embedding.weight.requires_grad = update_emb
+        if load_emb:
+            self.load_pretrain_emb(config)
+        self.word_embedding.weight.requires_grad = update_emb
 
         self.encoder = Encoder(config, embedding=self.word_embedding)
-        if config.dataset_name == 'event':
-            if config.decoder_type == 'one':
-                self.decoder = OneCCKSDecoder(config, embedding=self.word_embedding, device=device)
-            elif config.decoder_type == 'multi':
-                self.decoder = MultiCCKSDecoder(config, embedding=self.word_embedding, device=device)
-            else:
-                raise ValueError('decoder type one/multi!!')
+        # if config.dataset_name == 'event':
+        #     if config.decoder_type == 'one':
+        #         self.decoder = OneCCKSDecoder(config, embedding=self.word_embedding, device=device)
+        #     elif config.decoder_type == 'multi':
+        #         self.decoder = MultiCCKSDecoder(config, embedding=self.word_embedding, device=device)
+        #     else:
+        #         raise ValueError('decoder type one/multi!!')
+        # else:
+        if config.decoder_type == 'one':
+            self.decoder = OneDecoder(config, embedding=self.word_embedding, device=device)
+        elif config.decoder_type == 'multi':
+            self.decoder = MultiDecoder(config, embedding=self.word_embedding, device=device)
         else:
-            if config.decoder_type == 'one':
-                self.decoder = OneDecoder(config, embedding=self.word_embedding, device=device)
-            elif config.decoder_type == 'multi':
-                self.decoder = MultiDecoder(config, embedding=self.word_embedding, device=device)
-            else:
-                raise ValueError('decoder type one/multi!!')
+            raise ValueError('decoder type one/multi!!')
 
         self.to(self.device)
 
@@ -627,7 +632,7 @@ class Seq2seq(nn.Module):
             # words_vectors[len(words_id2vec) + 1] = [0] * len(words_id2vec[key])
             words_vectors[config.words_number] = [0] * len(words_id2vec[key])
 
-            print(len(words_vectors))
+            # print(len(words_vectors))
             self.word_embedding.weight.data.copy_(torch.from_numpy(np.array(words_vectors)))
 
     def forward(self, sentence: torch.Tensor, sentence_eos: torch.Tensor, lengths: List[int]) \

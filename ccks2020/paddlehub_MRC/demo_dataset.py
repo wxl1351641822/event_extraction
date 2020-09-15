@@ -113,8 +113,6 @@ class DuReader(BaseNLPDataset):
                 for qa in paragraph["qas"]:
                     qas_id = qa["id"]
                     question_text = qa["question"]
-                    
-                    
                     if phase == 'predict':
                         # 测试集部分没有答案
                         orig_answer_text = ""

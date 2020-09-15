@@ -32,17 +32,18 @@ parser.add_argument("--learning_rate", type=float, default=3e-5, help="Learning 
 parser.add_argument("--weight_decay", type=float, default=0.01, help="Weight decay rate for L2 regularizer.")
 parser.add_argument("--warmup_proportion", type=float, default=0.0, help="Warmup proportion params for warmup strategy")
 parser.add_argument("--checkpoint_dir", type=str, default=None, help="Directory to model checkpoint")
+parser.add_argument("--model", type=str, default='ernie', help="Directory to model checkpoint")
 parser.add_argument("--max_seq_len", type=int, default=202, help="Number of words of the longest seqence.")
+parser.add_argument("--max_que_len", type=int, default=16, help="Number of words of the longest seqence.")
 parser.add_argument("--batch_size", type=int, default=8, help="Total examples' number in batch for training.")
 parser.add_argument("--use_data_parallel", type=ast.literal_eval, default=True, help="Whether use data parallel.")
-args = parser.parse_args()
+
 # yapf: enable.
 
-
-if __name__ == '__main__':
+def one(id,args):
     # 加载PaddleHub ERNIE预训练模型
-    module = hub.Module(name="ernie")
-    
+    module = hub.Module(name=args.model)
+
     # ERNIE预训练模型输入变量inputs、输出变量outputs、以及模型program
     inputs, outputs, program = module.context(
         trainable=True, max_seq_len=args.max_seq_len)
@@ -54,7 +55,7 @@ if __name__ == '__main__':
         vocab_path=module.get_vocab_path(),
         max_seq_len=args.max_seq_len,
         doc_stride=128,
-        max_query_length=16)
+        max_query_length=args.max_que_len)
 
     # 取ERNIE的字级别预训练输出
     seq_output = outputs["sequence_output"]
@@ -94,13 +95,25 @@ if __name__ == '__main__':
         config=config,
         sub_task="cmrc2018",
     )
-    
+
     # 调用finetune_and_eval API，将会自动进行训练、评估以及保存最佳模型
     reading_comprehension_task.finetune_and_eval()
-    
+
     # 竞赛数据集测试集部分数据用于预测
     data = dataset.predict_examples
     # 调用predict接口, 打开return_result(True)，将自动返回预测结果
     all_prediction = reading_comprehension_task.predict(data=data, return_result=True)
     # 写入预测结果
-    json.dump(all_prediction, open('submit.json', 'w'), ensure_ascii=False)
+    json.dump(all_prediction, open('submit{}.json'.format(id), 'w'), ensure_ascii=False)
+    value = [id,reading_comprehension_task.best_score]+list(args.__dict__.values())
+    value = [str(x) for x in value]
+    with open('./work/log/MRC_log.txt', 'a', encoding='utf-8') as f:
+        f.write(','.join(value))
+if __name__ == '__main__':
+    id=0
+    args = parser.parse_args()
+    title = ['id', 'score'] + list(args.__dict__.keys())
+    with open('./work/log/MRC_log.txt', 'a', encoding='utf-8') as f:
+        f.write(','.join(title))
+    one(id,args)
+
