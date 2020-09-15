@@ -251,7 +251,7 @@ def process_data(args,i=4):
         train1, dev1 = get_mcls_onlysentence_train_dev(args, i)
         predict_data, predict_sents = get_mcls_onlysentence_predict(args)
         # write_by_lines("{}/predict_mcls.txt".format(args.data_dir), predict_data)
-        schema_labels = ['0','1']
+        schema_labels = read_label('{}/event2id.txt'.format(args.data_dir))[1:]
     return schema_labels, predict_data, predict_sents
 
 

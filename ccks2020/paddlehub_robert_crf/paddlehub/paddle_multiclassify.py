@@ -56,7 +56,7 @@ def one(args, schema_labels, predict_data, predict_sents, id):
         get_submit_postprocess(args, id)
         get_submit_postprocess(args, id, check=True)
 
-    if args.do_model == 'mcls' and args.do_predict:
+    if args.do_model in ['mcls','mcls_onlysentence']  and args.do_predict:
         input_data = predict_data
         result=seq_label_task.predict(data=input_data, return_result=True)
         ret = []
