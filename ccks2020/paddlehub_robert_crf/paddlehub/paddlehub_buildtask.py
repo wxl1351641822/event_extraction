@@ -20,11 +20,13 @@ from paddlehub import MultiLabelClassifierTask
 from paddlehub.reader import MultiLabelClassifyReader
 from paddlehub import SequenceLabelTask
 from paddlehub.reader import SequenceLabelReader
+from paddlehub import TextClassifierTask
+from paddlehub.reader import ClassifyReader
 
 from paddlehub_dataprocess import write_by_lines,read_by_lines,regrex_data,read_label
 from paddlehub_dataprocess import write_title
 from paddlehub_dataprocess import write_log
-from dataset import CCksDataset,EEDataset
+from dataset import CCksDataset,EEDataset,MRCrelationDataset
 
 from config import *
 # parser.add_argument(
@@ -42,6 +44,29 @@ def is_path_valid(path):
         os.mkdir(dirname)
     return True
 
+def get_mcls_onlysentence_train_dev(args,i):
+    c = pd.read_csv('./work/data_cls_onlysentence.csv', header=None, sep='\t').sort_values(by=0,ascending=True)
+    margin = int(0.2 * c.shape[0])
+    dev = c[i * margin:(i + 1) * margin]
+    train = c.drop(list(range(i * margin,(i + 1) * margin)))
+    train.to_csv('./work/train_cls.csv',header=None, sep='\t',index=False)
+    dev.to_csv('./work/dev_cls.csv', header=None, sep='\t', index=False)
+    return train,dev
+
+
+def get_mcls_onlysentence_predict(args):
+    data = pd.read_csv(predict_path, sep='\t', header=None).fillna('')
+    predict_sents = []
+    predict_list=[]
+    for id, sent in data.values:
+        # print(id,text)
+        sent=regrex_data(sent)
+        max_seq_len=len(sent)+3
+        for pro in range(len(sent) // (max_seq_len - 2)+1):
+            text = sent[pro * (max_seq_len - 2):(pro + 1) * (max_seq_len - 2)]
+            predict_sents.append({'id': id, 'text': text})
+            predict_list.append([text])
+    return predict_list, predict_sents
 
 def get_mcls_train_dev(args,i):
     c = pd.read_csv('./work/data_cls.csv', header=None, sep='\t').sort_values(by=0,ascending=True)
@@ -68,6 +93,32 @@ def get_mcls_predict(args):
 
     return predict_list, predict_sents
 
+def get_mrc_relation_train_dev(args,i):
+    c = pd.read_csv('./work/data_mrc_relation.csv', header=None, sep='\t').sort_values(by=0,ascending=True)
+    margin = int(0.2 * c.shape[0])
+    dev = c[i * margin:(i + 1) * margin]
+    train = c.drop(list(range(i * margin,(i + 1) * margin)))
+    train.to_csv('./work/train_mrc_relation.csv',header=None, sep='\t',index=False)
+    dev.to_csv('./work/dev_mrc_relation.csv', header=None, sep='\t', index=False)
+    # train=pd.read_csv('./work/train_mrc_relation.csv',header=None,sep='\t')
+    # print(train.head(3))
+    return train,dev
+
+
+def get_mrc_relation_predict(args):
+    data = pd.read_csv(mcls_predict_path, sep='\t', header=None).fillna('')
+    predict_sents = []
+    predict_list=[]
+    for id, sent,entity,label in data.values:
+        # print(id,text)
+        sent=regrex_data(sent)
+        max_seq_len=len(sent)+3
+        for pro in range(len(sent) // (max_seq_len - 2)+1):
+            text = sent[pro * (max_seq_len - 2):(pro + 1) * (max_seq_len - 2)]
+            predict_sents.append({'id': id, 'text': text,'entity':entity,'origlabel':label})
+            predict_list.append([text,entity])
+
+    return predict_list, predict_sents
 def get_train_dev(args,i):
     c = pd.read_csv('./work/data.csv', header=None, sep='\t')
     # print(c.shape[0])
@@ -178,7 +229,7 @@ def process_data(args,i=4):
         predict_data, predict_sents = get_mcls_predict(args)
         # write_by_lines("{}/predict_mcls.txt".format(args.data_dir), predict_data)
         schema_labels = read_label('{}/event2id.txt'.format(args.data_dir))[1:]
-    else:
+    elif args.do_model=='role':
         train1, dev1 = get_train_dev(args,i)
         predict_data, predict_sents = get_predict(args)
 
@@ -192,6 +243,15 @@ def process_data(args,i=4):
             schema_labels = read_label('{}/event2id.txt'.format(args.data_dir))
         else:
             schema_labels = ['O', 'B', 'I']
+    elif args.do_model=='mrc_relation':
+        train1,dev1=get_mrc_relation_train_dev(args,i)
+        predict_data,predict_sents=get_mrc_relation_predict(args)
+        schema_labels = ['0','1']
+    else:#if args.do_model=='mcls_onlysentence'
+        train1, dev1 = get_mcls_onlysentence_train_dev(args, i)
+        predict_data, predict_sents = get_mcls_onlysentence_predict(args)
+        # write_by_lines("{}/predict_mcls.txt".format(args.data_dir), predict_data)
+        schema_labels = ['0','1']
     return schema_labels, predict_data, predict_sents
 
 
@@ -329,7 +389,7 @@ def get_task(args, schema_labels, id):
     inputs, outputs, program = module.context(
         trainable=True, max_seq_len=args.max_seq_len)
     # if args.model=='mcls':
-    if(args.do_model=='mcls'):
+    if(args.do_model=='mcls' or args.do_model=='mcls_onlysentence'):
         tokenizer = hub.BertTokenizer(vocab_file=module.get_vocab_path())  # 加载数据并通过SequenceLabelReader读取数据
 
         dataset = CCksDataset(args.data_dir, schema_labels, model=args.do_model,tokenizer=tokenizer,max_seq_len=args.max_seq_len)
@@ -343,6 +403,19 @@ def get_task(args, schema_labels, id):
         # 构建序列标注任务迁移网络
         # 使用ERNIE模型字级别的输出sequence_output作为迁移网络的输入
         output=outputs["pooled_output"]
+    elif(args.do_model=='mrc_relation'):
+        print(schema_labels)
+        dataset = MRCrelationDataset(args.data_dir, schema_labels, model=args.do_model)
+        reader = ClassifyReader(
+            dataset=dataset,
+            vocab_path=module.get_vocab_path(),
+            max_seq_len=args.max_seq_len,
+            sp_model_path=module.get_spm_path(),
+            word_dict_path=module.get_word_dict_path())
+
+        # 构建序列标注任务迁移网络
+        # 使用ERNIE模型字级别的输出sequence_output作为迁移网络的输入
+        output = outputs["pooled_output"]
     else:
         # 加载数据并通过SequenceLabelReader读取数据
         dataset = EEDataset(args.data_dir, schema_labels, model=args.do_model)
@@ -390,13 +463,23 @@ def get_task(args, schema_labels, id):
         strategy=strategy)
 
     # 构建序列标注迁移任务
-    if args.do_model=='mcls':
+    if args.do_model=='mcls' or args.do_model=='mcls_onlysentence':
         task = MultiLabelClassifierTask(
             data_reader=reader,
             feature=output,
             feed_list=feed_list,
             num_classes=dataset.num_labels,
             config=config)
+    elif (args.do_model == 'mrc_relation'):
+        print(dataset.num_labels)
+        task = TextClassifierTask(
+            data_reader=reader,
+            feature=output,
+            feed_list=feed_list,
+            num_classes=dataset.num_labels,
+            config=config,
+            metrics_choices=['acc']
+        )
     else:
         task = SequenceLabelTask(
             data_reader=reader,

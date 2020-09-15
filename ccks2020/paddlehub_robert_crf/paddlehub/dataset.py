@@ -15,6 +15,7 @@ class CCksDataset(BaseNLPDataset):
         # 数据集存放位置
         # if tokenizer is None:
         #     tokenizer=
+        self.model=model
         super(CCksDataset, self).__init__(
             base_path=data_dir,
             train_file="train_cls.csv",
@@ -68,15 +69,28 @@ class CCksDataset(BaseNLPDataset):
         data=pd.read_csv(input_file,sep='\t',header=None)
         examples=[]
         i=0
-        if(phase!='predict'):
-            for sent,entity,label in data.values:
-                # print(type(label))
-                examples.append(InputExample(guid=i,text_a=sent,text_b=str(entity),label=eval(label)))
-                i += 1
-        else:
-            for sent, entity, label in data.values:
-                examples.append(InputExample(guid=i,text_a=sent, text_b=str(entity), label=None))
-                i+=1
+        if self.model == 'mcls':
+            if(phase!='predict'):
+                for sent,entity,label in data.values:
+                    # print(type(label))
+                    examples.append(InputExample(guid=i,text_a=sent,text_b=str(entity),label=eval(label)))
+                    i += 1
+            else:
+                for sent, entity, label in data.values:
+                    examples.append(InputExample(guid=i,text_a=sent, text_b=str(entity), label=None))
+                    i+=1
+        else:#if self.model=='mcls_onlysentence':
+
+            if (phase != 'predict'):
+                for sent, label in data.values:
+                    # print(type(label))
+                    examples.append(InputExample(guid=i, text_a=sent, label=eval(label)))
+                    # print(examples[-1])
+                    i += 1
+            else:
+                for sent,  label in data.values:
+                    examples.append(InputExample(guid=i, text_a=sent, label=None))
+                    i += 1
         return examples
 
 
@@ -144,6 +158,89 @@ class EEDataset(BaseNLPDataset):
                             has_warned = True
                         example = InputExample(
                             guid=i, text_a=line[0], text_b=line[1])
+                    else:
+                        raise Exception(
+                            "the predict file: %s has too many columns (should <=2)"
+                            % (input_file))
+                examples.append(example)
+                # print(example)
+            return examples
+
+class MRCrelationDataset(BaseNLPDataset):
+    """EEDataset"""
+
+    def __init__(self, data_dir, labels=['0','1'], model="trigger"):
+        # 数据集存放位置
+
+        super(MRCrelationDataset, self).__init__(
+            base_path=data_dir,
+            train_file="train_mrc_relation.csv",
+            dev_file="dev_mrc_relation.csv",
+            test_file="dev_mrc_relation.csv",
+            # 如果还有预测数据（不需要文本类别label），可以放在predict.tsv
+            predict_file="dev_mrc_relation.csv",
+            train_file_with_header=False,
+            dev_file_with_header=False,
+            test_file_with_header=False,
+            predict_file_with_header=False,
+            # 数据集类别集合
+            label_list=labels)
+        # print(labels)
+
+    def _read_file(self, input_file, phase=None):
+        """Reads a tab separated value file."""
+        has_warned = False
+
+        # c=pd.read_csv(input_file,header=None,sep='\t')#pd.read_csv('./work/train_mrc_relation.csv',header=None,sep='\t')
+        # print(c.head(3))
+        with io.open(input_file, "r", encoding="UTF-8") as file:
+            reader = csv.reader(file, delimiter="\t", quotechar=None)
+            examples = []
+            for (i, line) in enumerate(reader):
+                # print(line)
+                if i == 0:
+                    ncol = len(line)
+                    if self.if_file_with_header[phase]:
+                        continue
+                if (len(line) != ncol):
+                    print(line)
+                if phase != "predict":
+                    if ncol == 1:
+                        raise Exception(
+                            "the %s file: %s only has one column but it is not a predict file"
+                            % (phase, input_file))
+                    elif ncol == 2:
+                        example = InputExample(
+                            guid=i, text_a=line[0], label=line[1])
+                    elif ncol == 3:
+                        if line[2] not in ['0','1']:
+                            print(line)
+                        example = InputExample(
+                            guid=i,
+                            text_a=line[0],
+                            text_b=line[1],
+                            label=line[2])
+                    else:
+                        raise Exception(
+                            "the %s file: %s has too many columns (should <=3_实体识别)"
+                            % (phase, input_file))
+                else:
+                    if ncol == 1:
+                        example = InputExample(guid=i, text_a=line[0])
+                    elif ncol == 2:
+                        if not has_warned:
+                            logger.warning(
+                                "the predict file: %s has 2 columns, as it is a predict file, the second one will be regarded as text_b"
+                                % (input_file))
+                            has_warned = True
+                        example = InputExample(
+                            guid=i, text_a=line[0], text_b=line[1])
+                    elif ncol == 3:
+                        example = InputExample(
+                            guid=i,
+                            text_a=line[0],
+                            text_b=line[1],
+                            label=line[2])
                     else:
                         raise Exception(
                             "the predict file: %s has too many columns (should <=2)"

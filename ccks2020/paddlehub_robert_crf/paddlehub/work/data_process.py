@@ -1,5 +1,5 @@
 import pandas as pd
-# data=pd.read_csv('./data/data34808/train_label.csv',sep='\t',header=None).fillna('')
+data=pd.read_csv('./data/data34808/train_label.csv',sep='\t',header=None).fillna('')
 
 
 def get_data():

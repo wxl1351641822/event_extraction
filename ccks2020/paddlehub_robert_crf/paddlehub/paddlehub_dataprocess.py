@@ -22,6 +22,7 @@ import argparse
 import collections
 import pandas as pd
 from collections import Counter
+from tqdm import tqdm
 
 def read_by_lines(path, encoding="utf-8"):
     """read the data by line"""
@@ -250,9 +251,12 @@ def correct(orig,co):
 def get_submit_correct(mcls=False):#开始边界为三vote,结束边界为最后一个--13.15.16--0.764
     output_predict_data_path='./work/test1_data/test1.json'
     output_path='./work/test1_data'
-    orig_id=32
-    correct_id=33
-    correct2_id=34
+    orig_id='40-44'
+    correct_id='45-49'
+    correct2_id='50-54'
+    # orig_id=32
+    # correct_id=33
+    # correct2_id=34
     orig = read_by_lines("{}.{}.{}.pred".format(output_predict_data_path, 'role', orig_id))
     correct = read_by_lines("{}.{}.{}.pred".format(output_predict_data_path, 'role', correct_id))
     correct2 = read_by_lines("{}.{}.{}.pred".format(output_predict_data_path, 'role', correct2_id))
@@ -346,12 +350,15 @@ def get_submit_correct(mcls=False):#开始边界为三vote,结束边界为最后
     # else:
     #     write_by_lines("{}/{}ucas_valid_result.csv".format(output_path,id), submit)
 
-def get_classify_correct(mcls=False):#开始边界为三vote,结束边界为最后一个--13.15.16--0.764
+def get_classify_correct(mcls=False):#开始边界为三vote,结束边界为最后一个--13.15.16--0.764,粗糙版本
     output_predict_data_path='./work/test1_data/test1.json'
     output_path='./work/test1_data'
-    orig_id='40-44'
-    correct_id='45-49'
-    correct2_id='50-54'
+    # orig_id='40-44'
+    # correct_id='45-49'
+    # correct2_id='50-54'
+    orig_id=32
+    correct_id=33
+    correct2_id=34
     orig = read_by_lines("{}.{}.{}.pred".format(output_predict_data_path, 'role', orig_id))
     correct = read_by_lines("{}.{}.{}.pred".format(output_predict_data_path, 'role', correct_id))
     correct2 = read_by_lines("{}.{}.{}.pred".format(output_predict_data_path, 'role', correct2_id))
@@ -362,7 +369,7 @@ def get_classify_correct(mcls=False):#开始边界为三vote,结束边界为最�
         json_correct=json.loads(correct[j])
         json_correct2 = json.loads(correct2[j])
         id=json_orig['id']
-        print(id)
+        # print(id)
         # print(json_correct)
         correct_labels=json_correct['labels']
         correct2_labels=json_correct2['labels']
@@ -379,8 +386,8 @@ def get_classify_correct(mcls=False):#开始边界为三vote,结束边界为最�
                         submit.append('\t'.join([str(id), label, text[entity_id:i]]))
                 label=''
             else:
-                print(i, label, text[i], orig_labels[i], json_correct['text'][i], correct_labels[i],
-                      json_correct2['text'][i], correct2_labels[i])
+                # print(i, label, text[i], orig_labels[i], json_correct['text'][i], correct_labels[i],
+                #       json_correct2['text'][i], correct2_labels[i])
                 if(label==''):
                     #0.76->0.74，但可以加个规则？
                     if (orig_labels[i][0] == 'B'):
@@ -487,6 +494,24 @@ def get_submit_cross_validation_vote(cross_validation_num=5,begid=40,type='BIO_e
 
     write_by_lines("{}/{}-{}cross.ucas_valid_result.csv".format(output_path,begid,begid+cross_validation_num-1 ), submit)
 
+def get_mclssubmit_cross_validation_vote(dirname='./work/test1_data',cross_validation_num=5,begid=2,filename='32-35.ucas_valid_result.csv'):
+    # dirname='./work/test1_data'
+    # filename='40-55.ucas_valid_result.csv'
+    datalist = []
+    for i in range(begid,begid+cross_validation_num):
+        path='{}/mcls.{}.{}'.format(dirname,i,filename)
+        datalist.extend(read_by_lines(path))
+    count=Counter(datalist)
+    result=[]
+    num=0
+    for k, v in count.items():
+        if v>2:
+            result.append(k)
+        else:
+            num+=1
+    print(num,len(result))
+    write_by_lines("{}/mcls.{}-{}cross.{}".format(dirname, begid, begid + cross_validation_num - 1,filename),result)
+
 def read_label_dict(path):
     with open(path, 'r', encoding='utf-8') as f:
         dic = f.read()
@@ -517,15 +542,15 @@ def regrex_data(x):##去除空格啥的
     x = x.replace('\x81', '')
     return x
 
-def get_data():
+def get_data_mcls():
     datapath='./work/all_with_neg.csv'
     c = pd.read_csv(datapath, header=None, sep='\t').fillna('').sort_values(by=0)
     label_dict=read_label_dict('./work/event2id.txt')
     labellist=list(label_dict.keys())[1:]
-    s = ['text_a\tentity\t' + '\t'.join(labellist)]
-    count = 0
-    # print(c.head(3))
-    oldid = 0
+    # s = ['text_a\tentity\t' + '\t'.join(labellist)]
+    # count = 0
+    # # print(c.head(3))
+    # oldid = 0
     data_dict={}
     multi_label_count=0
     for id, sent, label, entity in c.values:
@@ -575,9 +600,88 @@ def get_data():
     print(multi_entity_count/41600.0,multi_entity_count)
     print(multi_label_count / 41600.0, multi_label_count)
 
+def get_data_mcls_onlysentence():
+    datapath='./work/all_with_neg.csv'
+    c = pd.read_csv(datapath, header=None, sep='\t').fillna('').sort_values(by=0)
+    label_dict=read_label_dict('./work/event2id.txt')
+    labellist=list(label_dict.keys())[1:]
+    # s = ['text_a\tentity\t' + '\t'.join(labellist)]
+    # count = 0
+    # # print(c.head(3))
+    # oldid = 0
+    data_dict={}
+    multi_label_count=0
+    for id, sent, label, entity in tqdm(c.values):
+        # if(id==oldid):
+        #     print(id,label,entity,oldid)
+        if(sent in data_dict.keys()):
+            # print(id,data_dict[id])
+            if (label != ''):
+                data_dict[sent][label_dict[label] - 1] = 1
+        else:
+            # oldid=id
+            data_dict[sent]=[0]*len(labellist)
+            if(label!=''):
+                data_dict[sent][label_dict[label]-1] = 1
+        # print(data_dict)
 
+    sents=[]
+    entities=[]
+    labels=[]
+    multi_entity_count=0
+    for sent,v in data_dict.items():
+        sent=regrex_data(sent)
+        sents.append(sent)
+        # entities.append(entity)
+        labels.append(v)
+        # print(label)
+
+    result = pd.DataFrame()
+    # result['id']=idd
+    result['sent']=sents
+    # result['entity']=entities
+    result['label']=labels
+    result=result.sample(frac=1.0)
+    result.to_csv('./work/data_cls_onlysentence.csv', header=None, index=False,sep='\t')
+    print(result)
+    print(multi_entity_count/41600.0,multi_entity_count)
+    print(multi_label_count / 41600.0, multi_label_count)
+
+def get_data_mrc_relation():
+    data = pd.read_csv('./work/data.csv', sep='\t', header=None).fillna('')
+    i = 0
+    result = []
+    eventcount = []
+    entitycount = []
+    neg_count = 0
+    pos_count = 0
+    for ids, sent, label_dic in data.values:
+        # print(sent,label_dic)
+        label_dic = eval(label_dic)
+        eventlist = list(label_dic.keys())
+        # print(eventlist)
+        entitylist = []
+        for entities in label_dic.values():
+            entitylist.extend(entities)
+        # print(entitylist)
+        eventcount.append(len(eventlist))
+        entitycount.append(len(entitylist))
+        for event in eventlist:
+            for entity in entitylist:
+                if (entity in label_dic[event]):
+                    result.append([sent, '%s有%s吗？' % (entity, event), '1'])
+                    pos_count += 1
+                else:
+                    result.append([sent, '%s有%s吗？' % (entity, event), '0'])
+                    neg_count += 1
+    c = pd.DataFrame(result, columns=['sent', 'ques', 'label'])
+    c = c.sample(frac=1.0)
+    c.to_csv('./work/data_mrc_relation.csv', header=None, index=False,sep='\t')
 if __name__ == "__main__":
-    get_classify_correct(True)
+    get_data_mcls_onlysentence()
+    # get_mclssubmit_cross_validation_vote()
+    # get_submit_correct(True)
+    # get_classify_correct(True)
     # get_submit_cross_validation_vote(cross_validation_num=5, begid=40,type='BIO_event')
     # get_data()
     # get_submit_correct(True)

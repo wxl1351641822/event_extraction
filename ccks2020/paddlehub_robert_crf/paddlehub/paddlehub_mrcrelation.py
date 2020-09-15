@@ -79,7 +79,7 @@ def one(args, schema_labels, predict_data, predict_sents, id):
         #     for k,v in r.items():
 
 
-def testone(id=2,do_model="mcls_onlysentence"):##按默认执行
+def testone(id=1,do_model="mrc_relation"):##按默认执行
     # get_data()
     args = parser.parse_args()
     # get_submit_postprocess(args, id)
@@ -87,7 +87,7 @@ def testone(id=2,do_model="mcls_onlysentence"):##按默认执行
     random.seed(args.random_seed)
     args.do_model =do_model
     shiyan = """
-    "mcls_onlysentence"
+    mrc_relation
         """
     write_title('./work/log/' + args.do_model + '.txt', args, shiyan)
     if(args.use_cross_validation):
